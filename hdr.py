@@ -32,7 +32,7 @@ def hdr(jsonPath, smooth=1, pixelNumber=None):
 		ln_ts.append(math.log(imageInfo["t"], math.e))
 
 	if not pixelNumber:
-		pixelNumber = round(510 / len(allImages) * 1.1)
+		pixelNumber = round(512 / len(allImages) * 1.1)
 
 	print(f"Sample pixel: {pixelNumber}")
 
@@ -69,12 +69,12 @@ def hdr(jsonPath, smooth=1, pixelNumber=None):
 			for j in range(len(allImages)):
 				pixel = allImages[j][pos[0]][pos[1]][channel]
 
-				weight = pixel / 64 if pixel < 64 else (255-pixel)/64 if pixel > 191 else 1
+				weight = pixel / 64 if pixel < 64 else (255 - pixel) / 64 if pixel > 191 else 1
 
 				index = i * len(allImages) + j
 				A[index][pixel] = weight
 				A[index][256+i] = -weight
-				b[index] = -weight * ln_ts[j]
+				b[index] = weight * ln_ts[j]
 
 		A[pixelNumber * len(allImages)][127] = 1
 
@@ -83,7 +83,7 @@ def hdr(jsonPath, smooth=1, pixelNumber=None):
 
 			weight = pixel / 64 if pixel < 64 else (255-pixel)/64 if pixel > 191 else 1
 
-			weight *= smooth
+			weight *= smooth ** 0.5
 
 			A[index][i] = weight
 			A[index][i+1] = -2 * weight
@@ -98,41 +98,37 @@ def hdr(jsonPath, smooth=1, pixelNumber=None):
 		for i in range(256):
 			g_Z.append(x[i])
 
-		# get irradiance map of images
-		ln_energies = []
-		for image_index in range(len(allImages)):
-			image = allImages[image_index]
-			ln_energy = np.zeros(image.shape[:2])
-			for i in range(image.shape[0]):
-				for j in range(image.shape[1]):
-					ln_energy[i][j] = g_Z[image[i][j][channel]] - ln_ts[image_index]
-			ln_energies.append(ln_energy)
-		
-		# merge
-		output = np.zeros(ln_energies[0].shape[:2], dtype=np.intc)
-		for i in range(output.shape[0]):
-			for j in range(output.shape[1]):
-				pixelEnergies = []
-				for energy in ln_energies:
-					pixelEnergies.append(energy[i][j])
-				pixelEnergies.sort()
-				pixelEnergies = pixelEnergies[len(pixelEnergies)//3:-len(pixelEnergies)//3+1]
-				output[i][j] = round(sum(pixelEnergies)/len(pixelEnergies))
-		
-		outputs.append(output)
+
+		energy = np.zeros(allImages[0].shape[:2])
+		for i in range(allImages[0].shape[0]):
+			for j in range(allImages[0].shape[1]):
+				
+				sum = 0
+				weight_sum = 0
+				for k in range(len(allImages)):
+					pixel = allImages[k][i][j][channel]
+					weight = pixel / 64 if pixel < 64 else (255-pixel)/64 if pixel > 191 else 1
+
+					sum += weight * (g_Z[pixel] - ln_ts[k])
+					weight_sum += weight
+
+				energy[i][j] = (sum / weight_sum)
+
+		outputs.append(energy)
 
 		plt.plot(g_Z, 'r' if channel==0 else 'g' if channel==1 else 'b')
 
 	maxVal = max([np.amax(output) for output in outputs])
-	minVal = max([np.amin(output) for output in outputs])
+	minVal = min([np.amin(output) for output in outputs])
 	outputs = [(output - minVal) * 255 / (maxVal - minVal) for output in outputs]
 
-	output_image = np.zeros((output.shape[0], output.shape[1], 3), 'uint8')
+	output_image = np.zeros((outputs[0].shape[0], outputs[0].shape[1], 3), 'uint8')
 	output_image[..., 0] = outputs[0]
 	output_image[..., 1] = outputs[1]
-	output_image[..., 2] = outputs[2]	
-	Image.fromarray(output_image).show()
-
+	output_image[..., 2] = outputs[2]
+	image = Image.fromarray(output_image)
+	image.save("temp.png")
+	image.show()
 	plt.show()
 
 	return outputs

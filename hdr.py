@@ -1,8 +1,13 @@
 import numpy as np
 from numpy.linalg import lstsq
 from numpy.random import randint
+
 from PIL import Image
+
 import matplotlib.pyplot as plt
+
+from numba import jit
+
 import json
 from os import path
 import math
@@ -16,6 +21,24 @@ import argparse
 #	}
 # ]
 
+@jit(nopython=True)
+def getLnEnergy(allImages, g_Z, ln_ts, channel):
+	energy = np.zeros(allImages[0].shape[:2], dtype='float64')
+	for i in range(energy.shape[0]):
+		for j in range(energy.shape[1]):
+			
+			sum = 0
+			weight_sum = 0
+			for k in range(len(allImages)):
+				pixel = allImages[k][i][j][channel]
+				weight = pixel / 64 if pixel < 64 else (255-pixel)/64 if pixel > 191 else 1
+
+				sum += weight * (g_Z[pixel] - ln_ts[k])
+				weight_sum += weight
+
+			energy[i][j] = sum / weight_sum
+
+	return energy
 
 def hdr(jsonPath, smooth=1, pixelNumber=None):
 
@@ -99,20 +122,7 @@ def hdr(jsonPath, smooth=1, pixelNumber=None):
 			g_Z.append(x[i])
 
 
-		energy = np.zeros(allImages[0].shape[:2])
-		for i in range(allImages[0].shape[0]):
-			for j in range(allImages[0].shape[1]):
-				
-				sum = 0
-				weight_sum = 0
-				for k in range(len(allImages)):
-					pixel = allImages[k][i][j][channel]
-					weight = pixel / 64 if pixel < 64 else (255-pixel)/64 if pixel > 191 else 1
-
-					sum += weight * (g_Z[pixel] - ln_ts[k])
-					weight_sum += weight
-
-				energy[i][j] = (sum / weight_sum)
+		energy = getLnEnergy(allImages, g_Z, ln_ts, channel)
 
 		outputs.append(energy)
 

@@ -36,7 +36,7 @@ def getLnEnergy(allImages, g_Z, ln_ts, channel):
 				sum += weight * (g_Z[pixel] - ln_ts[k])
 				weight_sum += weight
 
-			energy[i][j] = sum / weight_sum
+			energy[i][j] = (sum / weight_sum) if weight_sum != 0 else 0
 
 	return energy
 

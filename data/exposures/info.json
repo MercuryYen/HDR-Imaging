@@ -1,0 +1,43 @@
+[
+	{
+		"path":"img01.jpg",
+		"t": 13
+	},
+	{
+		"path":"img02.jpg",
+		"t": 10
+	},{
+		"path":"img03.jpg",
+		"t": 4
+	},{
+		"path":"img04.jpg",
+		"t": 3.2
+	},{
+		"path":"img05.jpg",
+		"t": 1
+	},{
+		"path":"img06.jpg",
+		"t": 0.8
+	},{
+		"path":"img07.jpg",
+		"t": 0.33333333333333
+	},{
+		"path":"img08.jpg",
+		"t": 0.25
+	},{
+		"path":"img09.jpg",
+		"t": 0.01666666666666
+	},{
+		"path":"img10.jpg",
+		"t": 0.0125
+	},{
+		"path":"img11.jpg",
+		"t": 0.003125
+	},{
+		"path":"img12.jpg",
+		"t": 0.0025
+	},{
+		"path":"img13.jpg",
+		"t": 0.001
+	}
+]

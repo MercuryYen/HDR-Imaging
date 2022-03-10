@@ -1,3 +1,4 @@
+from distutils.command.build import build
 import numpy as np
 from numpy.linalg import lstsq
 from numpy.random import randint
@@ -6,7 +7,9 @@ from PIL import Image
 
 import matplotlib.pyplot as plt
 
-from numba import jit
+from numba import njit
+
+import time
 
 import json
 from os import path
@@ -14,15 +17,39 @@ import math
 
 import argparse
 
-# imagesInfo:[
-# 	{
-#		"path": "path/to/image",
-#		"t": 0.3
-#	}
-# ]
 
-@jit(nopython=True)
-def getLnEnergy(allImages, g_Z, ln_ts, channel):
+@njit
+def buildAb(allImages, ln_ts, smooth, channel, pixels, A:np.array,b:np.array):
+	for i in range(len(pixels)):
+		pos = pixels[i]
+
+		for j in range(len(allImages)):
+			pixel = allImages[j][pos[0]][pos[1]][channel]
+
+			weight = pixel / 64 if pixel < 64 else (255 - pixel) / 64 if pixel > 191 else 1
+
+			index = i * len(allImages) + j
+			A[index][pixel] = weight
+			A[index][256+i] = -weight
+			b[index] = weight * ln_ts[j]
+
+	A[len(pixels) * len(allImages)][127] = 1
+
+	for i in range(254):
+		index = len(pixels) * len(allImages) + 1 + i
+
+		weight = pixel / 64 if pixel < 64 else (255-pixel)/64 if pixel > 191 else 1
+
+		weight *= smooth ** 0.5
+
+		A[index][i] = weight
+		A[index][i+1] = -2 * weight
+		A[index][i+2] = weight
+
+	return A, b
+
+@njit
+def getEnergy(allImages, g_Z, ln_ts, channel):
 	energy = np.zeros(allImages[0].shape[:2], dtype='float64')
 	for i in range(energy.shape[0]):
 		for j in range(energy.shape[1]):
@@ -36,13 +63,22 @@ def getLnEnergy(allImages, g_Z, ln_ts, channel):
 				sum += weight * (g_Z[pixel] - ln_ts[k])
 				weight_sum += weight
 
-			energy[i][j] = (sum / weight_sum) if weight_sum != 0 else 0
+			energy[i][j] = np.exp(sum / weight_sum) if weight_sum != 0 else 0
 
 	return energy
+
+
+# imagesInfo:[
+# 	{
+#		"path": "path/to/image",
+#		"t": 0.3
+#	}
+# ]
 
 def hdr(jsonPath, smooth=1, pixelNumber=None):
 
 	with open(jsonPath) as f:
+
 		imageInfos = json.load(f)
 
 	allImages = []
@@ -60,6 +96,7 @@ def hdr(jsonPath, smooth=1, pixelNumber=None):
 	print(f"Sample pixel: {pixelNumber}")
 
 	outputs = []
+	g_Zs = []
 
 	# RGB
 	for channel in range(3):
@@ -76,10 +113,9 @@ def hdr(jsonPath, smooth=1, pixelNumber=None):
 		# column: 1
 		b = np.zeros((A.shape[0]))
 
-		# fill matrix
+		# generate random pixel
+		pixels = []
 		for i in range(pixelNumber):
-			pos = 0
-
 			ok = False
 			while not ok:
 				pos = randint(0, allImages[0].shape[:2])
@@ -88,29 +124,10 @@ def hdr(jsonPath, smooth=1, pixelNumber=None):
 					if (allImages[j][pos[0]][pos[1]] == (0,0,255)).all():
 						ok=False
 						break
+			pixels.append(pos)
 
-			for j in range(len(allImages)):
-				pixel = allImages[j][pos[0]][pos[1]][channel]
-
-				weight = pixel / 64 if pixel < 64 else (255 - pixel) / 64 if pixel > 191 else 1
-
-				index = i * len(allImages) + j
-				A[index][pixel] = weight
-				A[index][256+i] = -weight
-				b[index] = weight * ln_ts[j]
-
-		A[pixelNumber * len(allImages)][127] = 1
-
-		for i in range(254):
-			index = pixelNumber * len(allImages) + 1 + i
-
-			weight = pixel / 64 if pixel < 64 else (255-pixel)/64 if pixel > 191 else 1
-
-			weight *= smooth ** 0.5
-
-			A[index][i] = weight
-			A[index][i+1] = -2 * weight
-			A[index][i+2] = weight
+		# fill matrix
+		A, b = buildAb(allImages, ln_ts, smooth, channel, pixels, A, b)
 
 		# x
 		# row: g, En
@@ -122,26 +139,12 @@ def hdr(jsonPath, smooth=1, pixelNumber=None):
 			g_Z.append(x[i])
 
 
-		energy = getLnEnergy(allImages, g_Z, ln_ts, channel)
+		energy = getEnergy(allImages, g_Z, ln_ts, channel)
 
 		outputs.append(energy)
+		g_Zs.append(g_Z)
 
-		plt.plot(g_Z, 'r' if channel==0 else 'g' if channel==1 else 'b')
-
-	maxVal = max([np.amax(output) for output in outputs])
-	minVal = min([np.amin(output) for output in outputs])
-	outputs = [(output - minVal) * 255 / (maxVal - minVal) for output in outputs]
-
-	output_image = np.zeros((outputs[0].shape[0], outputs[0].shape[1], 3), 'uint8')
-	output_image[..., 0] = outputs[0]
-	output_image[..., 1] = outputs[1]
-	output_image[..., 2] = outputs[2]
-	image = Image.fromarray(output_image)
-	image.save("temp.png")
-	image.show()
-	plt.show()
-
-	return outputs
+	return outputs, g_Zs
 
 
 if __name__ == "__main__":
@@ -154,5 +157,27 @@ if __name__ == "__main__":
 						help="The number of sample for each g(x)", default=None)
 	args = parser.parse_args()
 
-	result = hdr(args.jsonPath, args.smooth, args.pixel)
-	print(result)
+	start_time = time.time()
+
+	outputs, g_Zs = hdr(args.jsonPath, args.smooth, args.pixel)
+
+	print(f"Spend {time.time() - start_time} sec")
+
+	
+	# display
+	maxVal = max([np.amax(np.log(output)) for output in outputs])
+	minVal = min([np.amin(np.log(output)) for output in outputs])
+	outputs = [(np.log(output) - minVal) * 255 / (maxVal - minVal) for output in outputs]
+
+	output_image = np.zeros((outputs[0].shape[0], outputs[0].shape[1], 3), 'uint8')
+	output_image[..., 0] = outputs[0]
+	output_image[..., 1] = outputs[1]
+	output_image[..., 2] = outputs[2]
+	image = Image.fromarray(output_image)
+	image.save("temp.png")
+	image.show()
+
+	plt.plot(g_Zs[0], "r")
+	plt.plot(g_Zs[1], "g")
+	plt.plot(g_Zs[2], "b")
+	plt.show()

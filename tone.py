@@ -26,9 +26,13 @@ if __name__ == "__main__":
 	parser.add_argument("-j", "--jsonPath", type=str,
 						help="The json file that store information about images", default="")
 	parser.add_argument("-s", "--smooth", type=float,
-						help="The weight of smooth parameter", default=1)
+						help="The weight of smooth parameter", default=500)
 	parser.add_argument("-p", "--pixel", type=int,
-						help="The number of sample for each g(x)", default=None)
+						help="The number of sample for each g(x)", default=500)
+	parser.add_argument("-a", "--alpha", type=float,
+						help="alpha", default=0.18)
+	parser.add_argument("-l", "--Lwhite", type=float,
+						help="alpha", default=100000)
 	args = parser.parse_args()
 
 	start_time = time.time()
@@ -36,7 +40,7 @@ if __name__ == "__main__":
 	allImages, ln_ts = readJson(args.jsonPath)
 	energys, g_Zs = hdr(allImages, ln_ts, args.smooth, args.pixel)
 	#luminances = globalOperator(allImages[4] / 255, 0.72, 1)
-	luminances = globalOperator(energys, 0.18, 100000000)
+	luminances = globalOperator(energys, args.alpha, args.Lwhite)
 	# outputs = [energy*luminance for energy, luminance in zip(energys,luminances)]
 	outputs = luminances
 
@@ -48,5 +52,5 @@ if __name__ == "__main__":
 
 	# outputs = (outputs - minVal) * 255 / (maxVal - minVal)
 	image = Image.fromarray(np.around(outputs * 255).astype(np.uint8))
-	image.save("temp.png")
 	image.show()
+	image.save("temp.png")

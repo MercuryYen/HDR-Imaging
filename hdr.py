@@ -1,4 +1,3 @@
-from cv2 import exp
 import numpy as np
 from numpy.linalg import lstsq
 from numpy.random import randint
@@ -66,7 +65,7 @@ def getEnergy(allImages, g_Z, ln_ts, channel):
 				weight_sum += weight
 
 			if weight_sum == 0:
-				sum = (g_Z[1] - max(ln_ts) if pixel == 0 else g_Z[254] - min(ln_ts))
+				sum = (min(g_Z) - max(ln_ts) if pixel == 0 else max(g_Z) - min(ln_ts))
 				weight_sum = 1
 
 			energy[i][j] = np.exp(sum / weight_sum)
@@ -130,30 +129,8 @@ def hdr(allImages, ln_ts, smooth=1, pixelNumber=None):
 
 		outputs.append(energy)
 		g_Zs.append(g_Z)
+	return np.array(outputs).transpose([1, 2, 0]), g_Zs
 
-	return outputs, g_Zs
-
-def globalOperator(energys, alpha = 0.8, Lwhite = 1.0):
-	outputs = []
-	delta = 0.000001
-	for c in range(len(energys)): 						# chennel
-		Lw = 0
-		for i in range(energys[c].shape[0]): 					# y
-			for j in range(energys[c].shape[1]): 				# x
-				Lw += np.log(delta + energys[c][i][j])
-		Lw /= i * j
-		Lw = np.exp(Lw)
-		Lms = []
-		Lds = np.zeros(energys[c].shape[:2], dtype='float64')
-		for i in range(energys[c].shape[0]): 					# y
-			for j in range(energys[c].shape[1]): 				# x
-				Lm = alpha * energys[c][i][j] / Lw
-				Lms.append(Lm)
-				Ld = (Lm * (1 + Lm / Lwhite ** 2)) / (1 + Lm)
-				# Ld = Lm / (1 + Lm)
-				Lds[i][j] = Ld
-		outputs.append(Lds)
-	return outputs
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
@@ -168,26 +145,22 @@ if __name__ == "__main__":
 	start_time = time.time()
 
 	allImages, ln_ts = readJson(args.jsonPath)
-	energys, g_Zs = hdr(allImages, ln_ts, args.smooth, args.pixel)
-	luminances = globalOperator(energys, 0.18, 255)
-	# outputs = [energy*luminance for energy, luminance in zip(energys,luminances)]
-	outputs = luminances
+	outputs, g_Zs = hdr(allImages, ln_ts, args.smooth, args.pixel)
 
 	print(f"Spend {time.time() - start_time} sec")
 
-	# display
-	maxVal = max([np.amax(np.log(output)) for output in outputs])
-	minVal = min([np.amin(np.log(output)) for output in outputs])
-	print(min([np.amin(output) for output in outputs]))
-	print(max([np.amax(output) for output in outputs]))
-	outputs = [(np.log(output) - minVal) * 255 / (maxVal - minVal)
-			   for output in outputs]
+	outputs = np.maximum(outputs, 0.01)
 
-	output_image = np.zeros(
-		(energys[0].shape[0], energys[0].shape[1], 3), 'uint8')
-	for i in range(3):
-		output_image[..., i] = outputs[i]
-	image = Image.fromarray(output_image)
+	# display
+	maxVal = np.amax(np.log(outputs))
+	minVal = np.amin(np.log(outputs))
+
+	print(np.amin(outputs))
+	print(np.amax(outputs))
+
+	outputs = (np.log(outputs) - minVal) * 255 / (maxVal - minVal)
+
+	image = Image.fromarray(np.around(outputs).astype(np.uint8))
 	image.save("temp.png")
 	image.show()
 

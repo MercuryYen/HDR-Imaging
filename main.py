@@ -1,6 +1,7 @@
 from hdr import hdr
 from alignment import alignment
 from readImage import readJson
+from tone import globalOperator
 
 import numpy as np
 
@@ -27,23 +28,14 @@ if __name__ == "__main__":
 	allImages, ln_ts = readJson(args.jsonPath)
 
 	allImages = alignment(allImages, args.shiftDepth)
-	outputs, g_Zs = hdr(allImages,ln_ts, args.smooth, args.pixel)
+	energys, g_Zs = hdr(allImages,ln_ts, args.smooth, args.pixel)
 
 	print(f"Spend {time.time() - start_time} sec")
 
 	# display
-	maxVal = max([np.amax(np.log(output)) for output in outputs])
-	minVal = min([np.amin(np.log(output)) for output in outputs])
-	print(min([np.amin(np.log(output)) for output in outputs]))
-	print(max([np.amax(np.log(output)) for output in outputs]))
-	outputs = [(np.log(output) - minVal) * 255 / (maxVal - minVal)
-			   for output in outputs]
+	luminances = globalOperator(energys, 0.18, 100000000)
 
-	output_image = np.zeros(
-		(outputs[0].shape[0], outputs[0].shape[1], 3), 'uint8')
-	for i in range(3):
-		output_image[..., i] = outputs[i]
-	image = Image.fromarray(output_image)
+	image = Image.fromarray(np.around(luminances * 255).astype(np.uint8))
 	image.save("temp.png")
 	image.show()
 

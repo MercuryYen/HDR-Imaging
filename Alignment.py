@@ -20,11 +20,21 @@ def halfBitmap(image):
 # return black white mask, and mask
 
 
-def toMask(image, threshold=0.17):
+def toMask(image, threshold=0.4):
 	sortedPixels = np.sort(image, axis=None)
 	threshold = math.floor(len(sortedPixels) * threshold)
 	return image > sortedPixels[len(sortedPixels) // 2], np.logical_or(image <= sortedPixels[threshold], image >= sortedPixels[-threshold])
 
+def clip(image, shift, color):
+	if shift[0] > 0:
+		image[:, :shift[0]] = color
+	elif shift[0] < 0:
+		image[:, shift[0]:] = color
+	if shift[1] > 0:
+		image[:shift[1]] = color
+	elif shift[1] < 0:
+		image[shift[1]:] = color
+	return image
 
 def getShift(imageRef, imageTar, shiftDeep=3):
 	shift = [0, 0]
@@ -34,6 +44,7 @@ def getShift(imageRef, imageTar, shiftDeep=3):
 		shift = [x * 2 for x in shift]
 
 	bwMaskRef, andMaskRef = toMask(imageRef)
+	bwMask, andMask = toMask(imageTar)
 
 	outputShift = shift
 
@@ -42,49 +53,35 @@ def getShift(imageRef, imageTar, shiftDeep=3):
 		for x in range(-1, 2):
 			yShift = shift[1] + y
 			xShift = shift[0] + x
-			testImage = np.roll(imageTar, yShift, axis=0)
-			testImage = np.roll(testImage, xShift, axis=1)
-			bwMask, andMask = toMask(testImage)
 
-			err = np.count_nonzero((bwMask ^ bwMaskRef) & andMaskRef)
+			bwMaskTemp = np.roll(bwMask, yShift, axis=0)
+			bwMaskTemp = np.roll(bwMaskTemp, xShift, axis=1)
+			
+			andMaskTemp = np.roll(andMask, yShift, axis=0)
+			andMaskTemp = np.roll(andMaskTemp, xShift, axis=1)
+
+			andMaskTemp = clip(andMaskTemp, [xShift, yShift], False)
+
+			err = np.count_nonzero((bwMaskTemp ^ bwMaskRef) & andMaskRef & andMaskTemp)
 			if err < minErr:
 				outputShift = [shift[0] + xShift, shift[1] + yShift]
 				minErr = err
 
 	return outputShift
 
-
-@njit
-def _toGray(image, grayImage):
-	for y in range(grayImage.shape[0]):
-		for x in range(grayImage.shape[1]):
-			pixel = image[y][x]
-			grayImage[y][x] = (pixel[0] * 54 + pixel[1] *
-							   183 + pixel[2] * 19) / 256
-	return grayImage
-
-
-def toGray(image):
-	grayImage = np.zeros(image.shape[:2], np.float)
-	return _toGray(image, grayImage)
+def toGrey(image):
+	return image[..., 0] * 0.299 + image[..., 1] * 0.587 + image[..., 2] * 0.114
 
 
 def alignment(images, shiftDepth=5):
 	imageRef = images[len(images) // 2]
 	for i in range(len(images)):
-		shift = getShift(toGray(imageRef), toGray(images[i]), shiftDepth)
+		shift = getShift(toGrey(imageRef), toGrey(images[i]), shiftDepth)
 		images[i] = np.roll(
 			np.roll(images[i], shift[1], axis=0), shift[0], axis=1)
 
-		if shift[0] > 0:
-			images[i][:, :shift[0]] = (0, 0, 255)
-		elif shift[0] < 0:
-			images[i][:, shift[0]:] = (0, 0, 255)
-		if shift[1] > 0:
-			images[i][:shift[1]] = (0, 0, 255)
-		elif shift[1] < 0:
-			images[i][shift[1]:] = (0, 0, 255)
-		
+		images[i] = clip(images[i], shift, (0, 0, 255))
+
 		print(f"{i+1} / {len(images)}")
 
 	return images
@@ -103,7 +100,7 @@ if __name__ == "__main__":
 	allImages, ln_ts = readJson(args.jsonPath)
 
 	allImages = alignment(allImages, args.shiftDepth)
-
+	
 	print(f"Spend {time.time() - start_time} sec")
 
 	for i in range(len(allImages)):

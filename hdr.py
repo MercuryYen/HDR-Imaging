@@ -64,7 +64,11 @@ def getEnergy(allImages, g_Z, ln_ts, channel):
 				sum += weight * (g_Z[pixel] - ln_ts[k])
 				weight_sum += weight
 
-			energy[i][j] = np.exp(sum / weight_sum) if weight_sum != 0 else 1e-4
+			if weight_sum == 0:
+				sum = (g_Z[1] - max(ln_ts) if pixel == 0 else g_Z[254] - min(ln_ts))
+				weight_sum = 1
+
+			energy[i][j] = np.exp(sum / weight_sum)
 
 	return energy
 

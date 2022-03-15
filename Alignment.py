@@ -38,8 +38,8 @@ def getShift(imageRef, imageTar, shiftDeep=3):
 	outputShift = shift
 
 	minErr = imageRef.shape[0] * imageRef.shape[1]
-	for y in range(-3, 4):
-		for x in range(-3, 4):
+	for y in range(-1, 2):
+		for x in range(-1, 2):
 			yShift = shift[1] + y
 			xShift = shift[0] + x
 			testImage = np.roll(imageTar, yShift, axis=0)

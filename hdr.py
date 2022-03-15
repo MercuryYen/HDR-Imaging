@@ -1,3 +1,4 @@
+from cv2 import exp
 import numpy as np
 from numpy.linalg import lstsq
 from numpy.random import randint
@@ -51,12 +52,12 @@ def buildAb(allImages, ln_ts, smooth, channel, pixels, A: np.array, b: np.array)
 @njit
 def getEnergy(allImages, g_Z, ln_ts, channel):
 	energy = np.zeros(allImages[0].shape[:2], dtype='float64')
-	for i in range(energy.shape[0]):
-		for j in range(energy.shape[1]):
+	for i in range(energy.shape[0]): 							# x
+		for j in range(energy.shape[1]): 						# y
 
 			sum = 0
 			weight_sum = 0
-			for k in range(len(allImages)):
+			for k in range(len(allImages)):						# picture index
 				pixel = allImages[k][i][j][channel]
 				weight = pixel / \
 					64 if pixel < 64 else (255-pixel)/64 if pixel > 191 else 1
@@ -132,6 +133,27 @@ def hdr(allImages, ln_ts, smooth=1, pixelNumber=None):
 
 	return outputs, g_Zs
 
+def globalOperator(energys, alpha = 0.8, Lwhite = 1.0):
+	outputs = []
+	delta = 0.000001
+	for c in range(len(energys)): 						# chennel
+		Lw = 0
+		for i in range(energys[c].shape[0]): 					# y
+			for j in range(energys[c].shape[1]): 				# x
+				Lw += np.log(delta + energys[c][i][j])
+		Lw /= i * j
+		Lw = np.exp(Lw)
+		Lms = []
+		Lds = np.zeros(energys[c].shape[:2], dtype='float64')
+		for i in range(energys[c].shape[0]): 					# y
+			for j in range(energys[c].shape[1]): 				# x
+				Lm = alpha * energys[c][i][j] / Lw
+				Lms.append(Lm)
+				Ld = (Lm * (1 + Lm / Lwhite ** 2)) / (1 + Lm)
+				# Ld = Lm / (1 + Lm)
+				Lds[i][j] = Ld
+		outputs.append(Lds)
+	return outputs
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
@@ -146,7 +168,10 @@ if __name__ == "__main__":
 	start_time = time.time()
 
 	allImages, ln_ts = readJson(args.jsonPath)
-	outputs, g_Zs = hdr(allImages, ln_ts, args.smooth, args.pixel)
+	energys, g_Zs = hdr(allImages, ln_ts, args.smooth, args.pixel)
+	luminances = globalOperator(energys, 0.18, 255)
+	# outputs = [energy*luminance for energy, luminance in zip(energys,luminances)]
+	outputs = luminances
 
 	print(f"Spend {time.time() - start_time} sec")
 
@@ -159,7 +184,7 @@ if __name__ == "__main__":
 			   for output in outputs]
 
 	output_image = np.zeros(
-		(outputs[0].shape[0], outputs[0].shape[1], 3), 'uint8')
+		(energys[0].shape[0], energys[0].shape[1], 3), 'uint8')
 	for i in range(3):
 		output_image[..., i] = outputs[i]
 	image = Image.fromarray(output_image)

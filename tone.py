@@ -1,6 +1,5 @@
 from sys import maxsize
 import numpy as np
-from torch import miopen_depthwise_convolution
 from hdr import hdr
 from alignment import toGrey
 from readImage import readJson

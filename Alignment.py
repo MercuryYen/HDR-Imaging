@@ -46,11 +46,15 @@ def getShift(imageRef, imageTar, shiftDeep=3):
 	bwMaskRef, andMaskRef = toMask(imageRef)
 	bwMask, andMask = toMask(imageTar)
 
+	andMaskRef = clip(andMaskRef, [shift[0] - 2, shift[1] - 2], False)
+	andMaskRef = clip(andMaskRef, [shift[0] + 2, shift[1] + 2], False)
+
+
 	outputShift = shift
 
 	minErr = imageRef.shape[0] * imageRef.shape[1]
-	for y in range(-1, 2):
-		for x in range(-1, 2):
+	for y in range(-2, 3):
+		for x in range(-2, 3):
 			yShift = shift[1] + y
 			xShift = shift[0] + x
 
@@ -59,8 +63,6 @@ def getShift(imageRef, imageTar, shiftDeep=3):
 			
 			andMaskTemp = np.roll(andMask, yShift, axis=0)
 			andMaskTemp = np.roll(andMaskTemp, xShift, axis=1)
-
-			andMaskTemp = clip(andMaskTemp, [xShift, yShift], False)
 
 			err = np.count_nonzero((bwMaskTemp ^ bwMaskRef) & andMaskRef & andMaskTemp)
 			if err < minErr:
@@ -74,17 +76,24 @@ def toGrey(image):
 
 
 def alignment(images, shiftDepth=5):
-	imageRef = images[len(images) // 2]
-	for i in range(len(images)):
-		shift = getShift(toGrey(imageRef), toGrey(images[i]), shiftDepth)
-		images[i] = np.roll(
-			np.roll(images[i], shift[1], axis=0), shift[0], axis=1)
+	middle = len(images) // 2
+	newImages = []
+	count = 0
 
-		images[i] = clip(images[i], shift, (0, 0, 255))
+	newImages.append(images[0])
+	for i in range(len(images) - 1):
+		shift = getShift(toGrey(images[i]), toGrey(images[i + 1]), shiftDepth)
+		image = np.roll(
+			np.roll(images[i + 1], shift[1], axis=0), shift[0], axis=1)
 
-		print(f"{i+1} / {len(images)}")
+		image = clip(image, shift, (0, 0, 255))
 
-	return images
+		newImages.append(image)
+
+		count += 1
+		print(f"{count} / {len(images)}")
+
+	return newImages
 
 
 if __name__ == "__main__":
@@ -92,7 +101,7 @@ if __name__ == "__main__":
 	parser.add_argument("-j", "--jsonPath", type=str,
 						help="The json file that store information about images.", default="")
 	parser.add_argument("-d", "--shiftDepth", type=int,
-						help="The depth of shift recursive.", default=5)
+						help="The depth of shift recursive.", default=3)
 
 	args = parser.parse_args()
 

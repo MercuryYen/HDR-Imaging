@@ -80,10 +80,10 @@ def getEnergy(allImages, g_Z, ln_ts, channel):
 #	}
 # ]
 
-def hdr(allImages, ln_ts, smooth=1, pixelNumber=None):
+def hdr(allImages, ln_ts, smooth=100, pixelNumber=None):
 
 	if not pixelNumber:
-		pixelNumber = round(512 / len(allImages) * 1.1)
+		pixelNumber = round(4096 / len(allImages) * 1.1)
 
 	print(f"Sample pixel: {pixelNumber}")
 

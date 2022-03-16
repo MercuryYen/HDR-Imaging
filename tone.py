@@ -46,7 +46,7 @@ def getLd(greyImage, vs, gaussians, alpha, phi, epsilon):
 			greyImage[y][x] = greyImage[y][x] / (1 + gaussians[maxS - 1][y][x])
 	return greyImage, vs
 
-def localOperator(energys, alpha = 0.18, phi = 10, epsilon = 1, maxDepth = 30):
+def localOperator(energys, alpha = 1.6, phi = 8, epsilon = 1e-4, maxDepth = 30):
 	gaussians = []
 	greyImage = toGrey(energys)
 	for i in range(maxDepth):
@@ -60,66 +60,20 @@ def localOperator(energys, alpha = 0.18, phi = 10, epsilon = 1, maxDepth = 30):
 
 	return output, vs
 
-def localOperatorEx(energys, alpha = 0.18, phi = 10, target = 0.5, epsilon = 1, maxDepth = 30):
-	gaussians = []
-	for i in range(maxDepth):
-		gaussians.append(gaussian_filter(toGrey(energys), sigma=i))
-	gaussians = np.array(gaussians)
-	
-	maxEpsilon = 0.01
-	minEpsilon = 0.01
-
-	target = max(0.01, min(0.99, target))
-	
-	# find max epsilon
-	temp, vs = getLd(np.copy(energys), np.zeros(gaussians[0].shape), gaussians, alpha, phi, maxEpsilon)
-	while np.mean(vs) < target:
-		maxEpsilon *= 2
-		temp, vs = getLd(np.copy(energys), np.zeros(gaussians[0].shape), gaussians, alpha, phi, maxEpsilon)
-		print(np.mean(vs), maxEpsilon)
-
-	# find min epsilon
-	temp, vs = getLd(np.copy(energys), np.zeros(gaussians[0].shape), gaussians, alpha, phi, minEpsilon)
-	while np.mean(vs) > target:
-		minEpsilon /= 2
-		temp, vs = getLd(np.copy(energys), np.zeros(gaussians[0].shape), gaussians, alpha, phi, minEpsilon)
-		print(np.mean(vs), minEpsilon)
-	
-	print(minEpsilon)
-	print(maxEpsilon)
-
-	# find final epsilon
-	midEpsilon = (minEpsilon + maxEpsilon) / 2
-	while maxEpsilon - minEpsilon > epsilon:
-		midEpsilon = (minEpsilon + maxEpsilon) / 2
-		temp, vs = getLd(np.copy(energys), np.zeros(gaussians[0].shape), gaussians, alpha, phi, maxEpsilon)
-		
-		if np.mean(vs)>target:
-			maxEpsilon = midEpsilon
-		else:
-			minEpsilon = midEpsilon
-		print(f"mean: {np.mean(vs)}")
-		print(midEpsilon)
-	energys, vs = getLd(np.copy(energys), np.zeros(gaussians[0].shape), gaussians, alpha, phi, maxEpsilon)
-	
-	return energys, vs
-	
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-j", "--jsonPath", type=str,
 						help="The json file that store information about images", default="")
-	parser.add_argument("-s", "--smooth", type=float,
-						help="The weight of smooth parameter", default=100)
-	parser.add_argument("-p", "--pixel", type=int,
-						help="The number of sample for each g(x)", default=500)
 	parser.add_argument("-a", "--alpha", type=float,
 						help="alpha", default=0.5)
+	parser.add_argument("-l", "--local", action='store_true', 
+						help="Using local operator")
 	args = parser.parse_args()
 
 	start_time = time.time()
 
 	allImages, ln_ts = readJson(args.jsonPath)
-	energys, g_Zs = hdr(allImages, ln_ts, args.smooth, args.pixel)
+	energys, g_Zs = hdr(allImages, ln_ts)
 	luminances = globalOperator(energys, args.alpha, np.amax(energys) * 1.01)
 	luminances = np.clip(luminances, 0, 1)
 	
@@ -129,23 +83,24 @@ if __name__ == "__main__":
 	print(f"\tminVal: {minVal}")
 	print(f"\tmaxVal: {maxVal}")
 
-	Image.fromarray(np.around(luminances * 255).astype(np.uint8)).show()
+	image = Image.fromarray(np.around(luminances * 255).astype(np.uint8))
+	image.show()
 
-	luminances, vs = localOperator(luminances, alpha = 1.6, phi = 8, epsilon = 1e-4, maxDepth = 10)
-	# luminances, vs = localOperatorEx(luminances, alpha = 1.6, phi = 8, target = 0.6, epsilon = 1e-6, maxDepth = 60)
-	# outputs = [energy*luminance for energy, luminance in zip(energys,luminances)]
+	if args.local:
+		luminances, vs = localOperator(luminances)
+		Image.fromarray(np.around(vs * 255).astype(np.uint8)).show()
+		image = Image.fromarray(np.around(luminances * 255).astype(np.uint8))
+		image.show()
+		# display
+		maxVal = np.amax(luminances)
+		minVal = np.amin(luminances)
+		print("Local operator:")
+		print(f"\tminVal: {minVal}")
+		print(f"\tmaxVal: {maxVal}")
 
 	print(f"Spend {time.time() - start_time} sec")
 
-	# display
-	maxVal = np.amax(luminances)
-	minVal = np.amin(luminances)
-	print("Local operator:")
-	print(f"\tminVal: {minVal}")
-	print(f"\tmaxVal: {maxVal}")
 
 	luminances = np.clip(luminances, 0, 1)
-	Image.fromarray(np.around(vs * 255).astype(np.uint8)).show()
 	image = Image.fromarray(np.around(luminances * 255).astype(np.uint8))
-	image.show()
 	image.save("temp.png")

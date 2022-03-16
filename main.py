@@ -15,10 +15,6 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-j", "--jsonPath", type=str,
 						help="The json file that store information about images.", default="")
-	parser.add_argument("-s", "--smooth", type=float,
-						help="The weight of smooth parameter", default=1)
-	parser.add_argument("-p", "--pixel", type=int,
-						help="The number of sample for each g(x)", default=None)
 	parser.add_argument("-d", "--shiftDepth", type=int,
 						help="The depth of shift recursive.", default=5)
 
@@ -28,7 +24,7 @@ if __name__ == "__main__":
 	allImages, ln_ts = readJson(args.jsonPath)
 
 	allImages = alignment(allImages, args.shiftDepth)
-	energys, g_Zs = hdr(allImages,ln_ts, args.smooth, args.pixel)
+	energys, g_Zs = hdr(allImages,ln_ts)
 
 	print(f"Spend {time.time() - start_time} sec")
 

@@ -10,7 +10,7 @@ from readImage import readJson
 
 @njit
 def halfBitmap(image):
-	newImage = np.zeros((image.shape[0]//2, image.shape[1]//2), dtype=np.uint8)
+	newImage = np.zeros((image.shape[0]//2, image.shape[1]//2) + image.shape[2:], dtype=np.uint8)
 	for i in range(newImage.shape[0]):
 		for j in range(newImage.shape[1]):
 			newImage[i][j] = (image[2 * i][2 * j] + image[2*i+1]
@@ -102,11 +102,22 @@ if __name__ == "__main__":
 						help="The json file that store information about images.", default="")
 	parser.add_argument("-d", "--shiftDepth", type=int,
 						help="The depth of shift recursive.", default=3)
+	parser.add_argument("-i", "--iteration", type=int,
+						help="Half image iteration", default=0)
 
 	args = parser.parse_args()
 
 	start_time = time.time()
 	allImages, ln_ts = readJson(args.jsonPath)
+	newAllImages = []
+
+	if args.iteration > 0:
+		for i in range(len(allImages)):
+			target = allImages[i]
+			for iter in range(args.iteration):
+				target = halfBitmap(target)
+			newAllImages.append(target)
+		allImages = np.array(newAllImages)
 
 	allImages = alignment(allImages, args.shiftDepth)
 	

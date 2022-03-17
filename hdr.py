@@ -14,8 +14,6 @@ from readImage import readJson
 
 import argparse
 
-import cv2
-
 @njit
 def buildAb(allImages, ln_ts, smooth, channel, pixels, A: np.array, b: np.array):
 	for i in range(len(pixels)):

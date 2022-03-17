@@ -3,7 +3,6 @@ import numpy as np
 from hdr import hdr
 from alignment import toGrey
 from readImage import readJson
-
 from scipy.ndimage import gaussian_filter
 
 import argparse
@@ -61,6 +60,44 @@ def localOperator(energys, alpha = 1.6, phi = 8, epsilon = 1e-4, maxDepth = 30):
 
 	return output, vs
 
+def getGaussuanFilter(size, sigma):
+	g = np.zeros((size, size))
+	sigma2 = sigma ** 2
+	halfSize = int(size / 2)
+	sum = 0
+	for i in range(-halfSize, halfSize + 1):
+		for j in range(-halfSize, halfSize + 1):
+			g[i + halfSize][j + halfSize] = np.exp(-(i ** 2 + j ** 2) / (2 * sigma2)) / (2 * np.pi * sigma2)
+			sum += g[i + halfSize][j + halfSize]
+	print(sum)
+	return g
+
+def multiFilter(I, g):
+	for i in range(I.shape(0)):
+		for j in range(I.shape(1)):
+			sum = 0
+			for x in range(g.shape(0)):
+				for y in range(g.shape(1)):
+					u = x + i
+					v = y + j
+					if (u < 0 or u >= I.shape(0) or v < 0 or v >= I.shape(1)):
+						continue
+					sum += I[u][v] * g[x][y]
+
+def fastBilateralFiltering(energys):
+	delta = 0.000001
+
+	I = np.log(delta + toGrey(energys))
+	g = getGaussuanFilter(3,1)
+	print(g)
+	L = gaussian_filter(I, sigma=1)
+	Rs= np.copy(energys)
+	# RGB
+	for c in range(3):
+		Rs[:, :, c] = energys[:, :, c] / L
+	outputs = Rs
+	return outputs
+
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-j", "--jsonPath", type=str,
@@ -69,6 +106,8 @@ if __name__ == "__main__":
 						help="alpha", default=0.18)
 	parser.add_argument("-l", "--local", action='store_true', 
 						help="Using local operator")
+	parser.add_argument("-f", "--fbf", action='store_true', 
+						help="Using fast Bilateral filtering")
 	args = parser.parse_args()
 
 	start_time = time.time()
@@ -87,7 +126,7 @@ if __name__ == "__main__":
 	luminances = np.clip(luminances, 0, 1)
 
 	image = Image.fromarray(np.around(luminances * 255).astype(np.uint8))
-	image.show()
+	# image.show()
 	# for c in range(3):
 	# 	Image.fromarray(np.around(luminances[:, :, c] * 255).astype(np.uint8)).show()
 
@@ -102,10 +141,15 @@ if __name__ == "__main__":
 		print("Local operator:")
 		print(f"\tminVal: {minVal}")
 		print(f"\tmaxVal: {maxVal}")
+		luminances = np.clip(luminances, 0, 1)
+		image = Image.fromarray(np.around(luminances * 255).astype(np.uint8))
+		image.show()
 
+	if args.fbf:
+		outputs = fastBilateralFiltering(energys)
+		image = Image.fromarray(np.around(outputs).astype(np.uint8))
+		image.show()
+		
 	print(f"Spend {time.time() - start_time} sec")
-
-
-	luminances = np.clip(luminances, 0, 1)
-	image = Image.fromarray(np.around(luminances * 255).astype(np.uint8))
+	
 	image.save("temp.png")

@@ -1,3 +1,4 @@
+from nbformat import write
 import numpy as np
 from numpy.linalg import lstsq
 from numpy.random import randint
@@ -14,7 +15,22 @@ from readImage import readJson
 
 import argparse
 
-import cv2
+def writeHDR(image, filename):
+	f = open(filename, "wb")
+	f.write(b"#?RADIANCE\n# Made with Python & Numpy\nFORMAT=32-bit_rle_rgbe\n\n")
+	f.write("-Y {0} +X {1}\n".format(image.shape[0], image.shape[1]).encode())
+
+	brightest = np.maximum(np.maximum(image[...,0], image[...,1]), image[...,2])
+	mantissa = np.zeros_like(brightest)
+	exponent = np.zeros_like(brightest)
+	np.frexp(brightest, mantissa, exponent)
+	scaled_mantissa = mantissa * 256.0 / brightest
+	rgbe = np.zeros((image.shape[0], image.shape[1], 4), dtype=np.uint8)
+	rgbe[...,0:3] = np.around(image[...,0:3] * scaled_mantissa[...,None])
+	rgbe[...,3] = np.around(exponent + 128)
+
+	rgbe.flatten().tofile(f)
+	f.close()
 
 @njit
 def buildAb(allImages, ln_ts, smooth, channel, pixels, A: np.array, b: np.array):
@@ -81,7 +97,7 @@ def getEnergy(allImages, g_Z, ln_ts, channel):
 #	}
 # ]
 
-def hdr(allImages, ln_ts, smooth=1, pixelNumber=None):
+def hdr(allImages, ln_ts, smooth=10, pixelNumber=None):
 
 	if not pixelNumber:
 		pixelNumber = round(8192 / len(allImages) * 1.1)
@@ -132,7 +148,6 @@ def hdr(allImages, ln_ts, smooth=1, pixelNumber=None):
 		g_Zs.append(g_Z)
 	return np.array(outputs).transpose([1, 2, 0]), g_Zs
 
-
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-j", "--jsonPath", type=str,
@@ -150,7 +165,7 @@ if __name__ == "__main__":
 
 	print(f"Spend {time.time() - start_time} sec")
 
-	cv2.imwrite('temp.hdr', outputs)
+	writeHDR(outputs, "temp.hdr")
 
 	outputs = np.maximum(outputs, 0.001)
 
@@ -166,7 +181,6 @@ if __name__ == "__main__":
 	outputs = np.clip(outputs, 0, 1)
 	outputs = outputs * 255
 	
-
 	image = Image.fromarray(np.around(outputs).astype(np.uint8))
 	image.save("temp.png")
 	image.show()

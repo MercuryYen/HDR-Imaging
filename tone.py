@@ -73,8 +73,8 @@ if __name__ == "__main__":
 
 	allImages, ln_ts = readJson(args.jsonPath)
 	energys, g_Zs = hdr(allImages, ln_ts)
-	luminances = globalOperator(energys, args.alpha, np.amax(energys) * 1.01)
-	luminances = np.clip(luminances, 0, 1)
+	print(np.amax(energys))
+	luminances = globalOperator(energys, args.alpha, np.amax(energys))
 	
 	maxVal = np.amax(luminances)
 	minVal = np.amin(luminances)
@@ -82,8 +82,12 @@ if __name__ == "__main__":
 	print(f"\tminVal: {minVal}")
 	print(f"\tmaxVal: {maxVal}")
 
+	luminances = np.clip(luminances, 0, 1)
+
 	image = Image.fromarray(np.around(luminances * 255).astype(np.uint8))
 	image.show()
+	# for c in range(3):
+	# 	Image.fromarray(np.around(luminances[:, :, c] * 255).astype(np.uint8)).show()
 
 	if args.local:
 		luminances, vs = localOperator(luminances)

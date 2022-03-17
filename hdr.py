@@ -14,6 +14,7 @@ from readImage import readJson
 
 import argparse
 
+import cv2
 
 @njit
 def buildAb(allImages, ln_ts, smooth, channel, pixels, A: np.array, b: np.array):
@@ -80,7 +81,7 @@ def getEnergy(allImages, g_Z, ln_ts, channel):
 #	}
 # ]
 
-def hdr(allImages, ln_ts, smooth=100, pixelNumber=None):
+def hdr(allImages, ln_ts, smooth=1, pixelNumber=None):
 
 	if not pixelNumber:
 		pixelNumber = round(8192 / len(allImages) * 1.1)
@@ -149,16 +150,22 @@ if __name__ == "__main__":
 
 	print(f"Spend {time.time() - start_time} sec")
 
-	outputs = np.maximum(outputs, 0.01)
+	cv2.imwrite('temp.hdr', outputs)
+
+	outputs = np.maximum(outputs, 0.001)
 
 	# display
-	maxVal = np.amax(np.log(outputs))
-	minVal = np.amin(np.log(outputs))
+	outputs = np.log(outputs)
+	maxVal = np.amax(outputs)
+	minVal = np.amin(outputs)
 
 	print(np.amin(outputs))
 	print(np.amax(outputs))
 
-	outputs = (np.log(outputs) - minVal) * 255 / (maxVal - minVal)
+	outputs = outputs / maxVal
+	outputs = np.clip(outputs, 0, 1)
+	outputs = outputs * 255
+	
 
 	image = Image.fromarray(np.around(outputs).astype(np.uint8))
 	image.save("temp.png")

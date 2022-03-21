@@ -25,7 +25,9 @@ def globalOperator(energys, alpha = 0.18, Lwhite = 1.0):
 
 	Lm = alpha * greyImage / Lw
 
+	#Ld = Lm / (1 + Lm)
 	Ld = (Lm * (1 + Lm / Lwhite ** 2)) / (1 + Lm)
+	print(Ld.shape)
 
 	output = np.copy(energys)
 	for i in range(output.shape[2]):
@@ -331,7 +333,7 @@ if __name__ == "__main__":
 	parser.add_argument("-j", "--jsonPath", type=str,
 						help="The json file that store information about images", default="")
 	parser.add_argument("-a", "--alpha", type=float,
-						help="alpha", default=0.5)
+						help="alpha", default=0.18)
 	parser.add_argument("-l", "--local", action='store_true', 
 						help="Using local operator")
 	parser.add_argument("-f", "--fbf", action='store_true', 

@@ -122,7 +122,7 @@ def localOperator(energys, alpha = 1.6, phi = 8, epsilon = 1e-4, maxDepth = 30):
 	return output, vs
 
 @njit
-def getGaussuan(x2:np.float, y2:np.float, sigma2:np.float):
+def getGaussuan(x2, y2, sigma2):
 	return np.exp(-(x2 + y2) / (2 * sigma2)) / (2 * np.pi * sigma2)
 
 @njit
@@ -208,7 +208,8 @@ def bilateralFiltering(Itensity, f:np.broadcast_arrays, kernal_half_size = 2, si
 
 	return logFiltered
 
-def fastBilateralFiltering(energys, sigma_f = 2):
+def fastBilateralFiltering(energys, sigma_f = 2, sigma_g = 0.4, compressFactor = 0.25):
+	energys = energys / np.max(energys) * 255
 	I = toGrey(energys)
 	logI = np.log10(I)
 	Colors= np.copy(energys)
@@ -216,26 +217,60 @@ def fastBilateralFiltering(energys, sigma_f = 2):
 	for c in range(3):
 		Colors[:, :, c] = energys[:, :, c] / I
 
-	sigma_g = 0.4
+	# Colors = Colors / np.max(Colors) * 255
+	# Colors = np.clip(Colors, 0, 1)
+	# Colors = Colors * 255
+	print(np.max(Colors))	
+	print(np.min(Colors))
+
 	x = np.zeros((sigma_f * 2 + 1, sigma_f * 2 + 1), dtype=np.float64)
 	x[sigma_f, sigma_f] = 1
 	f = gaussian_filter(x, sigma=sigma_f)
 
 	logBase = bilateralFiltering(logI, f, sigma_f, sigma_g)
-	base = np.power(10, logBase)
 	logDetail = logI - logBase
+	# logBase = logBase * 0.9
+	base = np.power(10, logBase)
+	# compressFactor = np.log10(50) / (np.max(base) - np.min(base))
+	scaleFactor = np.max(logBase) * compressFactor
+	logNewI = logBase * compressFactor - scaleFactor + logDetail
+	newI = np.power(10, logNewI)
+	# newI = newI / np.max(newI) * np.max(I)
+	# newI = newI / np.max(newI)
+	# alpha = 0.18
+	# Lwhite = np.max(base)
+	# Lw = np.exp(np.sum(np.log(base + 0.000001)) / base.size)
+	# Lm = alpha * base / Lw
+	# Ld = (Lm * (1 + Lm / Lwhite ** 2)) / (1 + Lm)
 
-	
+	# compressBase = base / (np.max(base) - np.min(base))
+	# base = np.clip(base, 0, 1)
+	# logBase = logBase * compressFactor
+	detail = np.power(10, logDetail)
+	# detail = detail / (np.max(detail) - np.min(detail))
+	# detail = np.clip(detail, 0, 1)
+	# newI = base * detail
+	# newI = np.clip(newI, 0, 1)
+	# newI = newI * 50
+
 	outputs = np.copy(Colors)
 	
 	# RGB
 	for c in range(3):
-		outputs[:, :, c] = Colors[:, :, c] * base
+		# outputs[:, :, c] = Colors[:, :, c] * I[:, :]
+		# outputs[:, :, c] = Colors[:, :, c] * Ld[:, :] * detail[:, :]
+		# outputs[:, :, c] = Colors[:, :, c] * base[:, :] * detail[:, :]
+		outputs[:, :, c] = Colors[:, :, c] * newI[:, :]
 	
-	outputs = base
+	# outputs = outputs / np.max(outputs) * 255
+	# outputs = Colors
+	# outputs = energys
+	print(np.max(outputs))
+	print(np.min(outputs))
 
-	# outputs = np.clip(outputs, 0, 1)
-	# outputs = outputs * 255
+	# outputs = base
+	outputs = np.clip(outputs, 0, 1)
+	outputs = outputs * 255
 	# ========================need fix b============================
 	# hdrImage = np.clip(energys, 0, 1)
 	# hdrImage = hdrImage * 255
@@ -399,6 +434,8 @@ if __name__ == "__main__":
 						help="Using log map")
 	parser.add_argument("-b", "--bias", type=float,
 						help="bias", default=0.65)
+	parser.add_argument("-c", "--compress", type=float,
+						help="compress", default=0.25)
 	args = parser.parse_args()
 
 	start_time = time.time()
@@ -411,19 +448,19 @@ if __name__ == "__main__":
 
 	if args.fbf:
 		print('calculating Fast Bilateral Filtering...')
-		outputs = fastBilateralFiltering(energys, 10)
-		outputs = np.log(outputs)
+		outputs = fastBilateralFiltering(energys, 2, 0.4, args.compress)
+		# outputs = np.log(outputs)
 
-		minVal = np.amin(outputs)
-		maxVal = np.amax(outputs)
+		# minVal = np.amin(outputs)
+		# maxVal = np.amax(outputs)
 
-		print(minVal)
-		print(maxVal)
+		# print(minVal)
+		# print(maxVal)
 
-		outputs = (outputs - minVal) / (maxVal - minVal)
-		# # outputs = outputs / maxVal
-		outputs = np.clip(outputs, 0, 1)
-		outputs = outputs * 255
+		# # outputs = (outputs - minVal) / (maxVal - minVal)
+		# # # outputs = outputs / maxVal
+		# outputs = np.clip(outputs, 0, 1)
+		# outputs = outputs * 255
 
 		image = Image.fromarray(np.around(outputs).astype(np.uint8))
 		image.show()

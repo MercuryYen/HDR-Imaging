@@ -84,7 +84,7 @@ def localOperator(energys, alpha = 1.6, phi = 8, epsilon = 1e-4, maxDepth = 30):
 	return output, vs
 
 @njit
-def getGaussuan(x2, y2, sigma2):
+def getGaussuan(x2:np.float, y2:np.float, sigma2:np.float):
 	return np.exp(-(x2 + y2) / (2 * sigma2)) / (2 * np.pi * sigma2)
 
 @njit
@@ -143,44 +143,34 @@ def multiFilter(I, g):
 			output[i][j] = sum
 	return output
 
-def bilateralFiltering(Itensity):
-	sigma_f = 2
-	sigma_g = 0.4
-	# dx = ndimage.sobel(Itensity, 0)  # horizontal derivative
-	# dy = ndimage.sobel(Itensity, 1)  # vertical derivative
-	# i = np.hypot(dx, dy)  # magnitude
-	x = np.zeros((5, 5), dtype=np.float64)
-	x[2, 2] = 1
-	f = gaussian_filter(x, sigma=sigma_f)
+@njit
+def bilateralFiltering(Itensity, f:np.broadcast_arrays, kernal_half_size = 2, sigma_g = 0.4):
 	rows, cols = Itensity.shape
 	logFiltered = np.zeros(Itensity.shape, dtype='float64')
-	filtered = np.zeros(Itensity.shape, dtype='float64')
 	for r in range(rows):
 		for c in range(cols):
-			ks = []
-			js = []
+			ks_sum = 0
+			js_sum = 0
 			# for ii in range(-math.ceil(2*sigma_f), math.ceil(2*sigma_f)+1):
-			for ii in range(-2, 3):
+			for ii in range(-kernal_half_size, kernal_half_size + 1):
 				if ii + c >= 0 and ii + c < cols:
 					# for jj in range(-math.ceil(2*sigma_f), math.ceil(2*sigma_f)+1):
-					for jj in range(-2, 3):
+					for jj in range(-kernal_half_size, kernal_half_size + 1):
 						if jj + r >= 0 and jj + r < rows:
 							# compute weight here
 							i_p = Itensity[r][c]
 							i_s = Itensity[r+jj][c+ii]
 							# weight = gaussian_filter(math.sqrt(ii**2 + jj**2), sigma_f) * gaussian_filter(i_p - i_s, sigma_g)
-							weight = f[jj + 2][ii + 2] * getGaussuan(i_p ** 2, i_s ** 2, sigma_g ** 2)
-							ks.append(weight)
-							js.append(weight * i_p)
-			ks_sum = np.sum(np.asarray(ks))
-			js_sum = np.sum(np.asarray(js))
+							weight = f[jj + kernal_half_size][ii + kernal_half_size] * getGaussuan((i_p - i_s) * (i_p - i_s), 0, sigma_g ** 2)
+							ks_sum += weight
+							js_sum += weight * i_s
+
 			logFiltered[r][c] = js_sum / ks_sum
 			# filtered[r][c] = js_sum / ks_sum
-			filtered[r][c] = math.pow(10, logFiltered[r][c])
 
-	return logFiltered, filtered
+	return logFiltered
 
-def fastBilateralFiltering(energys):
+def fastBilateralFiltering(energys, sigma_f = 2):
 	I = toGrey(energys)
 	logI = np.log10(I)
 	Colors= np.copy(energys)
@@ -188,13 +178,23 @@ def fastBilateralFiltering(energys):
 	for c in range(3):
 		Colors[:, :, c] = energys[:, :, c] / I
 
-	logBase, base = bilateralFiltering(logI)
+	sigma_g = 0.4
+	x = np.zeros((sigma_f * 2 + 1, sigma_f * 2 + 1), dtype=np.float64)
+	x[sigma_f, sigma_f] = 1
+	f = gaussian_filter(x, sigma=sigma_f)
+
+	logBase = bilateralFiltering(logI, f, sigma_f, sigma_g)
+	base = np.power(10, logBase)
 	logDetail = logI - logBase
+
+	
 	outputs = np.copy(Colors)
 	
 	# RGB
 	for c in range(3):
-		outputs[:, :, c] = Colors[:, :, c] * base[:, :]
+		outputs[:, :, c] = Colors[:, :, c] * base
+	
+	outputs = base
 
 	# outputs = np.clip(outputs, 0, 1)
 	# outputs = outputs * 255
@@ -373,17 +373,19 @@ if __name__ == "__main__":
 
 	if args.fbf:
 		print('calculating Fast Bilateral Filtering...')
-		outputs = fastBilateralFiltering(energys)
+		outputs = fastBilateralFiltering(energys, 10)
+		outputs = np.log(outputs)
 
-		# maxVal = np.amax(outputs)
-		# minVal = np.amin(outputs)
+		minVal = np.amin(outputs)
+		maxVal = np.amax(outputs)
 
-		# print(np.amin(outputs))
-		# print(np.amax(outputs))
+		print(minVal)
+		print(maxVal)
 
+		outputs = (outputs - minVal) / (maxVal - minVal)
 		# # outputs = outputs / maxVal
-		# outputs = np.clip(outputs, 0, 1)
-		# outputs = outputs * 255
+		outputs = np.clip(outputs, 0, 1)
+		outputs = outputs * 255
 
 		image = Image.fromarray(np.around(outputs).astype(np.uint8))
 		image.show()
@@ -435,5 +437,6 @@ if __name__ == "__main__":
 			image.show()
 
 print(f"Spend {time.time() - start_time} sec")
-	
-	image.save("temp.png")
+
+
+image.save("temp.png")

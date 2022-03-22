@@ -1,4 +1,3 @@
-from nbformat import write
 import numpy as np
 from numpy.linalg import lstsq
 from numpy.random import randint

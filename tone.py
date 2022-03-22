@@ -1,15 +1,35 @@
-from sys import maxsize
 import numpy as np
 from hdr import hdr
 from alignment import toGrey
 from readImage import readJson
 from scipy.ndimage import gaussian_filter
 
+import matplotlib.pyplot as plt
+
 import argparse
 import time
 from PIL import Image
 
 from numba import njit
+
+def logMap(energys, b = 1.3):
+	delta = 1e-6
+	Lw = toGrey(energys)
+	Lave = np.exp(np.sum(np.log(Lw + delta)) / Lw.size)
+	print(Lave)
+
+
+	LwMax = np.max(Lw) / Lave * 1.1
+
+	Ld = np.log(Lw + 1) / np.log10(LwMax + 1) / np.log(2 + (Lw / LwMax) ** (np.log(b) / np.log(0.5)) * 8)
+	print(np.min(Ld))
+	print(np.max(Ld))
+	
+	output = np.copy(energys)
+	for i in range(output.shape[2]):
+		output[:, :, i] = output[:, :, i] / Lw * Ld
+
+	return output
 
 def globalOperator(energys, alpha = 0.18, Lwhite = 1.0):
 	delta = 1e-6
@@ -108,48 +128,66 @@ if __name__ == "__main__":
 						help="Using local operator")
 	parser.add_argument("-f", "--fbf", action='store_true', 
 						help="Using fast Bilateral filtering")
+	parser.add_argument("-lm", "--logMap", action='store_true', 
+						help="Using log map")
+	parser.add_argument("-b", "--bias", type=float,
+						help="bias", default=1.2)
 	args = parser.parse_args()
 
 	start_time = time.time()
 
 	allImages, ln_ts = readJson(args.jsonPath)
 	energys, g_Zs = hdr(allImages, ln_ts)
-	print(np.amax(energys))
-	luminances = globalOperator(energys, args.alpha, np.amax(energys))
-	
-	maxVal = np.amax(luminances)
-	minVal = np.amin(luminances)
-	print("Global operator:")
-	print(f"\tminVal: {minVal}")
-	print(f"\tmaxVal: {maxVal}")
-
-	luminances = np.clip(luminances, 0, 1)
-
-	image = Image.fromarray(np.around(luminances * 255).astype(np.uint8))
 	# image.show()
 	# for c in range(3):
 	# 	Image.fromarray(np.around(luminances[:, :, c] * 255).astype(np.uint8)).show()
 
-	if args.local:
-		luminances, vs = localOperator(luminances)
-		Image.fromarray(np.around(vs * 255).astype(np.uint8)).show()
-		image = Image.fromarray(np.around(luminances * 255).astype(np.uint8))
-		image.show()
-		# display
-		maxVal = np.amax(luminances)
-		minVal = np.amin(luminances)
-		print("Local operator:")
-		print(f"\tminVal: {minVal}")
-		print(f"\tmaxVal: {maxVal}")
-		luminances = np.clip(luminances, 0, 1)
-		image = Image.fromarray(np.around(luminances * 255).astype(np.uint8))
-		image.show()
-
 	if args.fbf:
+		print("Using Fast Bilateral filtering")
 		outputs = fastBilateralFiltering(energys)
 		image = Image.fromarray(np.around(outputs).astype(np.uint8))
 		image.show()
+
+	elif args.logMap:
+		print("Using log map")
+		outputs = logMap(energys, args.bias)
+		maxVal = np.amax(outputs)
+		minVal = np.amin(outputs)
+		print(f"\tminVal: {minVal}")
+		print(f"\tmaxVal: {maxVal}")
+		outputs = np.clip(outputs, 0, 1)
+		image = Image.fromarray(np.around(outputs * 255).astype(np.uint8))
+		image.show()
+
+	else:
+		print("Using Photographic Tone")
+		print(np.amax(energys))
+		luminances = globalOperator(energys, args.alpha, np.amax(energys))
 		
+		maxVal = np.amax(luminances)
+		minVal = np.amin(luminances)
+		print("Global operator:")
+		print(f"\tminVal: {minVal}")
+		print(f"\tmaxVal: {maxVal}")
+
+		luminances = np.clip(luminances, 0, 1)
+
+		image = Image.fromarray(np.around(luminances * 255).astype(np.uint8))
+		image.show()
+
+		if args.local:
+			print("with Dodging-and-burning")
+			luminances, vs = localOperator(luminances)
+			Image.fromarray(np.around(vs * 255).astype(np.uint8)).show()
+
+			# display
+			print("Local operator:")
+			print(f"\tminVal: {minVal}")
+			print(f"\tmaxVal: {maxVal}")
+			luminances = np.clip(luminances, 0, 1)
+			image = Image.fromarray(np.around(luminances * 255).astype(np.uint8))
+			image.show()
+
 	print(f"Spend {time.time() - start_time} sec")
 	
 	image.save("temp.png")

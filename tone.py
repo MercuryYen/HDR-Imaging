@@ -1,6 +1,6 @@
 import numpy as np
 from hdr import hdr
-from alignment import toGrey
+from alignment import toGrey, halfBitmap
 from readImage import readJson
 from scipy.ndimage import gaussian_filter
 from scipy import ndimage
@@ -436,11 +436,25 @@ if __name__ == "__main__":
 						help="bias", default=0.65)
 	parser.add_argument("-c", "--compress", type=float,
 						help="compress", default=0.25)
+	parser.add_argument("-i", "--iteration", type=int,
+						help="half image iteration", default=0)
+	parser.add_argument("-k", "--kernalSize", type=int,
+						help="kernal size", default=2)
 	args = parser.parse_args()
 
 	start_time = time.time()
 
 	allImages, ln_ts = readJson(args.jsonPath)
+
+	newAllImages = []
+	if args.iteration > 0:
+		for i in range(len(allImages)):
+			target = allImages[i]
+			for iter in range(args.iteration):
+				target = halfBitmap(target)
+			newAllImages.append(target)
+		allImages = np.array(newAllImages)
+
 	energys, g_Zs = hdr(allImages, ln_ts)
 	# image.show()
 	# for c in range(3):
@@ -448,14 +462,14 @@ if __name__ == "__main__":
 
 	if args.fbf:
 		print('calculating Fast Bilateral Filtering...')
-		outputs = fastBilateralFiltering(energys, 2, 0.4, args.compress)
+		outputs = fastBilateralFiltering(energys, args.kernalSize, 0.4, args.compress)
 		# outputs = np.log(outputs)
 
-		# minVal = np.amin(outputs)
-		# maxVal = np.amax(outputs)
+		minVal = np.amin(outputs)
+		maxVal = np.amax(outputs)
 
-		# print(minVal)
-		# print(maxVal)
+		print(minVal)
+		print(maxVal)
 
 		# # outputs = (outputs - minVal) / (maxVal - minVal)
 		# # # outputs = outputs / maxVal

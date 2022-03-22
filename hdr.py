@@ -95,8 +95,7 @@ def getEnergy(allImages, g_Z, ln_ts, channel):
 #		"t": 0.3
 #	}
 # ]
-
-def hdr(allImages, ln_ts, smooth=10, pixelNumber=None):
+def hdr(allImages, ln_ts, smooth=10, pixelNumber=None, ghost_removal = True):
 
 	if not pixelNumber:
 		pixelNumber = round(8192 / len(allImages) * 1.1)
@@ -145,7 +144,13 @@ def hdr(allImages, ln_ts, smooth=10, pixelNumber=None):
 
 		outputs.append(energy)
 		g_Zs.append(g_Z)
-	return np.array(outputs).transpose([1, 2, 0]), g_Zs
+
+	outputs = np.array(outputs).transpose([1, 2, 0])
+
+	if ghost_removal:
+		
+
+	return outputs, g_Zs
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()

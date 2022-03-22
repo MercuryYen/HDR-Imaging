@@ -195,7 +195,7 @@ def fastBilateralFiltering(energys, sigma_f = 2, sigma_g = 0.4, compressFactor =
 	base = np.power(10, logBase)
 	# compressFactor = np.log10(50) / (np.max(base) - np.min(base))
 	scaleFactor = np.max(logBase) * compressFactor
-	logNewI = logBase * compressFactor - scaleFactor + logDetail
+	logNewI = logBase * compressFactor + logDetail
 	newI = np.power(10, logNewI)
 	# newI = newI / np.max(newI) * np.max(I)
 	# newI = newI / np.max(newI)

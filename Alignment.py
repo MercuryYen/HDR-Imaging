@@ -72,7 +72,7 @@ def getShift(imageRef, imageTar, shiftDeep=3):
 	return outputShift
 
 def toGrey(image):
-	return image[..., 0] * 0.2126 + image[..., 1] * 0.7152 + image[..., 2] * 0.0722
+	return image[..., 0] * 0.299 + image[..., 1] * 0.587 + image[..., 2] * 0.114
 
 
 def alignment(images, shiftDepth=5):

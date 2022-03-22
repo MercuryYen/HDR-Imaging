@@ -10,27 +10,65 @@ import matplotlib.pyplot as plt
 
 import argparse
 import time
-import math
 from PIL import Image
 
 from numba import njit
 
-def logMap(energys, b = 1.3):
-	delta = 1e-6
-	Lw = toGrey(energys)
-	Lave = np.exp(np.sum(np.log(Lw + delta)) / Lw.size)
-	print(Lave)
+def rgb_Yxy(energys):
+	table = np.transpose(np.array([[0.5141364, 0.3238786, 0.16036376],
+                         [0.265068, 0.67023428, 0.06409157],
+                         [0.0241188, 0.1228178, 0.84442666]
+						 ]))
+	result = np.matmul(energys, table)
 
-
-	LwMax = np.max(Lw) / Lave * 1.1
-
-	Ld = np.log(Lw + 1) / np.log10(LwMax + 1) / np.log(2 + (Lw / LwMax) ** (np.log(b) / np.log(0.5)) * 8)
-	print(np.min(Ld))
-	print(np.max(Ld))
-	
+	W = np.sum(result, axis = 2)
+	temp = W > 0
 	output = np.copy(energys)
-	for i in range(output.shape[2]):
-		output[:, :, i] = output[:, :, i] / Lw * Ld
+	output[:, :, 0] = temp * result[:, :, 1]
+	output[:, :, 1] = temp * result[:, :, 0] / W
+	output[:, :, 2] = temp * result[:, :, 1] / W
+
+	return output
+
+def Yxy_rgb(energys):
+	table = np.transpose(np.array([[2.5651, -1.1665, -0.3986],
+						 [-1.0217, 1.9777, 0.0439], 
+						 [0.0753, -0.2543, 1.1892]
+						]))
+	Y = energys[:, :, 0]
+	result1 = energys[:, :, 1]
+	result2 = energys[:, :, 2]
+	temp = ((Y > 1e-6) & (result1 > 1e-6) & (result2 > 1e-6))
+	X = temp * result1 * Y / result2
+	Z = temp * X / result1 - X - Y
+	output = np.copy(energys)
+	output[:, :, 0] = X
+	output[:, :, 1] = Y
+	output[:, :, 2] = Z
+
+	return np.matmul(output, table)
+
+
+def logMap(energys, b = 1.3):
+	output = np.copy(energys)
+
+	delta = 1e-6
+	output = rgb_Yxy(output)
+	Lw = output[:, :, 0]
+	Lave = np.exp(np.sum(np.log(Lw + delta)) / Lw.size)
+
+	LwMax = np.max(Lw) / Lave
+
+	Lw = Lw / Lave
+	Lw = np.log(Lw + 1) / np.log10(LwMax + 1) / np.log(2 + (Lw / LwMax) ** (np.log(b) / np.log(0.5)) * 8)
+	print(np.min(Lw))
+	print(np.max(Lw))
+	
+	output[:, :, 0] = Lw
+	output = Yxy_rgb(output)
+	#output = np.copy(energys)
+	#for i in range(output.shape[2]):
+	#	output[:, :, i] = output[:, :, i] / Lw * Ld
 
 	return output
 
@@ -395,7 +433,7 @@ if __name__ == "__main__":
 	parser.add_argument("-lm", "--logMap", action='store_true', 
 						help="Using log map")
 	parser.add_argument("-b", "--bias", type=float,
-						help="bias", default=1.2)
+						help="bias", default=0.65)
 	parser.add_argument("-c", "--compress", type=float,
 						help="compress", default=0.25)
 	args = parser.parse_args()

@@ -189,22 +189,18 @@ def bilateralFiltering(Itensity, f:np.broadcast_arrays, kernal_half_size = 2, si
 		for c in range(cols):
 			ks_sum = 0
 			js_sum = 0
-			# for ii in range(-math.ceil(2*sigma_f), math.ceil(2*sigma_f)+1):
 			for ii in range(-kernal_half_size, kernal_half_size + 1):
 				if ii + c >= 0 and ii + c < cols:
-					# for jj in range(-math.ceil(2*sigma_f), math.ceil(2*sigma_f)+1):
 					for jj in range(-kernal_half_size, kernal_half_size + 1):
 						if jj + r >= 0 and jj + r < rows:
 							# compute weight here
 							i_p = Itensity[r][c]
 							i_s = Itensity[r+jj][c+ii]
-							# weight = gaussian_filter(math.sqrt(ii**2 + jj**2), sigma_f) * gaussian_filter(i_p - i_s, sigma_g)
 							weight = f[jj + kernal_half_size][ii + kernal_half_size] * getGaussuan((i_p - i_s) * (i_p - i_s), 0, sigma_g ** 2)
 							ks_sum += weight
 							js_sum += weight * i_s
 
 			logFiltered[r][c] = js_sum / ks_sum
-			# filtered[r][c] = js_sum / ks_sum
 
 	return logFiltered
 
@@ -217,11 +213,8 @@ def fastBilateralFiltering(energys, sigma_f = 2, sigma_g = 0.4, compressFactor =
 	for c in range(3):
 		Colors[:, :, c] = energys[:, :, c] / I
 
-	# Colors = Colors / np.max(Colors) * 255
-	# Colors = np.clip(Colors, 0, 1)
-	# Colors = Colors * 255
-	print(np.max(Colors))	
-	print(np.min(Colors))
+	# print(np.max(Colors))	
+	# print(np.min(Colors))
 
 	x = np.zeros((sigma_f * 2 + 1, sigma_f * 2 + 1), dtype=np.float64)
 	x[sigma_f, sigma_f] = 1
@@ -229,195 +222,18 @@ def fastBilateralFiltering(energys, sigma_f = 2, sigma_g = 0.4, compressFactor =
 
 	logBase = bilateralFiltering(logI, f, sigma_f, sigma_g)
 	logDetail = logI - logBase
-	# logBase = logBase * 0.9
-	base = np.power(10, logBase)
-	# compressFactor = np.log10(50) / (np.max(base) - np.min(base))
-	scaleFactor = np.max(logBase) * compressFactor
 	logNewI = logBase * compressFactor + logDetail
 	newI = np.power(10, logNewI)
-	# newI = newI / np.max(newI) * np.max(I)
-	# newI = newI / np.max(newI)
-	# alpha = 0.18
-	# Lwhite = np.max(base)
-	# Lw = np.exp(np.sum(np.log(base + 0.000001)) / base.size)
-	# Lm = alpha * base / Lw
-	# Ld = (Lm * (1 + Lm / Lwhite ** 2)) / (1 + Lm)
-
-	# compressBase = base / (np.max(base) - np.min(base))
-	# base = np.clip(base, 0, 1)
-	# logBase = logBase * compressFactor
-	detail = np.power(10, logDetail)
-	# detail = detail / (np.max(detail) - np.min(detail))
-	# detail = np.clip(detail, 0, 1)
-	# newI = base * detail
-	# newI = np.clip(newI, 0, 1)
-	# newI = newI * 50
 
 	outputs = np.copy(Colors)
 	
 	# RGB
 	for c in range(3):
-		# outputs[:, :, c] = Colors[:, :, c] * I[:, :]
-		# outputs[:, :, c] = Colors[:, :, c] * Ld[:, :] * detail[:, :]
-		# outputs[:, :, c] = Colors[:, :, c] * base[:, :] * detail[:, :]
 		outputs[:, :, c] = Colors[:, :, c] * newI[:, :]
 	
-	# outputs = outputs / np.max(outputs) * 255
-	# outputs = Colors
-	# outputs = energys
-	print(np.max(outputs))
-	print(np.min(outputs))
-
-	# outputs = base
 	outputs = np.clip(outputs, 0, 1)
 	outputs = outputs * 255
-	# ========================need fix b============================
-	# hdrImage = np.clip(energys, 0, 1)
-	# hdrImage = hdrImage * 255
-		
-	# I = toGrey(hdrImage)
-	# Colors= np.copy(energys)
-	# # RGB
-	# for c in range(3):
-	# 	Colors[:, :, c] = hdrImage[:, :, c] / I
-	# # Colors = np.clip(Colors, 0, 1)
-	# # Colors = Colors * 255
-
-	# logBase, base = bilateralFiltering(I)
-	# # outputs = Colors
-	# detail = base / I
-	# outputs = np.copy(Colors)
 	
-	# # RGB
-	# for c in range(3):
-	# 	# outputs[:, :, c] = Colors[:, :, c] * base[:, :]
-	# 	outputs[:, :, c] = base[:, :]
-	# ========================error============================
-	# I = toGrey(energys)
-	# logI = np.log10(I)
-	# Colors= np.copy(energys)
-	# # RGB
-	# for c in range(3):
-	# 	Colors[:, :, c] = np.log10(energys[:, :, c]) - logI
-	# # Colors = np.clip(Colors, 0, 1)
-	# # Colors = Colors * 255
-
-	# # logBase, base = bilateralFiltering(logI)s
-	# # logBase, base = bilateralFiltering(toGrey(hdrImage))
-	# # logBase, base = bilateralFiltering(I)
-	# logBase = gaussian_filter(logI, sigma=1)
-	# # outputs = Colors
-	# logDetail = logBase - logI
-	# outputs = np.copy(Colors)
-	
-	# # RGB
-	# for c in range(3):
-	# 	outputs[:, :, c] = Colors[:, :, c] + logBase[:, :] + logDetail[:, :]
-
-	# outputs = np.clip(outputs, 0, 1)
-	# outputs = outputs * 255
-	# ==========================gaussian==============================
-	# I = toGrey(energys)
-	# logI = np.log10(I)
-	# Colors= np.copy(energys)
-	# # RGB
-	# for c in range(3):
-	# 	Colors[:, :, c] = energys[:, :, c] / I
-	# # Colors = np.clip(Colors, 0, 1)
-	# # Colors = Colors * 255
-
-	# # base = gaussian_filter(I, sigma=1)
-	# # g = getGaussuanFilter(energys.shape[0], energys.shape[1], 1)
-	# g = getGaussuanFilter(5, 5, 1)
-	# # base = multiFilter(I, g)
-	# base = signal.convolve2d(I, g, boundary='symm', mode='same')
-	# # outputs = Colors
-	# detail = base / I
-	# outputs = np.copy(Colors)
-	
-	# # RGB
-	# for c in range(3):
-	# 	outputs[:, :, c] = Colors[:, :, c] * base[:, :]
-
-	# outputs = np.clip(outputs, 0, 1)
-	# outputs = outputs * 255
-	# =============================================================
-	# hdrImage = np.clip(energys, 0, 1)
-	# hdrImage = hdrImage * 255
-		
-	# I = toGrey(hdrImage)
-	# logI = np.log10(I)
-	# Colors= np.copy(energys)
-	# # RGB
-	# for c in range(3):
-	# 	Colors[:, :, c] = hdrImage[:, :, c] / I
-	# # Colors = np.clip(Colors, 0, 1)
-	# # Colors = Colors * 255
-
-	# # logBase, base = bilateralFiltering(logI)s
-	# # logBase, base = bilateralFiltering(toGrey(hdrImage))
-	# # logBase, base = bilateralFiltering(I)
-	# base = gaussian_filter(I, sigma=1)
-	# # outputs = Colors
-	# detail = base / I
-	# outputs = np.copy(Colors)
-	
-	# # RGB
-	# for c in range(3):
-	# 	outputs[:, :, c] = Colors[:, :, c] * base[:, :] * detail[:, :]
-	# ================================================================
-
-
-	
-
-	# logDetail = logI - logBase
-	# maxLogBase = np.max(logBase)
-	# minLogBase = np.min(logBase)
-	# compressFactor = np.log10(50) / (maxLogBase - minLogBase)
-	# scaleFactor = maxLogBase * compressFactor
-	# logIntensity = logBase * compressFactor - scaleFactor + logDetail
-	# intensity = np.copy(logIntensity)
-	
-	# for r in range(logIntensity.shape[0]):
-	# 	for c in range(logIntensity.shape[1]):
-	# 		intensity[r][c] = math.pow(10, logIntensity[r][c])
-	# outputs = np.copy(energys)
-	# # RGB
-	# for c in range(3):
-	# 	outputs[:, :, c] = Colors[:, :, c] * intensity[:, :]
-
-
-
-	# logI = np.log10(delta + I)
-	# # I = toGrey(energys)
-	# # g = getGaussuanFilter(3,1)
-	# # print(g)
-	# x = np.zeros((11, 11), dtype=np.float64)
-	# x[5, 5] = 1
-	# g = gaussian_filter(x, sigma=1)
-	# result = ndimage.sobel(energys)
-	# print('result')
-	# print(result)
-	# # L = multiFilter(I, g)
-	# # logBase = signal.convolve2d(logI, g, boundary='symm', mode='same') #卷積
-	# base = signal.convolve2d(I, g, boundary='symm', mode='same') #卷積
-	# detail = I / base	# I = illuminance * reflectance
-	# # L = gaussian_filter(I, sigma=1)
-	
-
-	# logDetail = logI - base
-
-	# outputs= np.copy(energys) # initial
-	# # RGB
-	# for c in range(3):
-	# 	# outputs[:, :, c] = detail[:, :]
-	# 	colorDetail = energys[:,:,c] / base[:,:]	# I = illuminance * reflectance
-	# 	# outputs[:, :, c] = Colors[:, :, c] * colorDetail[:,:]
-
-	# 	# Colors[:, :, c] = logI[:, :]
-	# outputs = colorDetail
-	# print(np.amin(outputs))
-	# print(np.amax(outputs))
 	return outputs
 
 if __name__ == "__main__":
@@ -465,35 +281,22 @@ if __name__ == "__main__":
 	printHDR(args.fileName,energys)
 
 	if args.fbf:
-		print('calculating Fast Bilateral Filtering...')
+		print('Using Bilateral Tone')
 		outputs = fastBilateralFiltering(energys, args.kernalSize, 0.4, args.compress)
-		# outputs = np.log(outputs)
 
 		minVal = np.amin(outputs)
 		maxVal = np.amax(outputs)
-
-		print(minVal)
-		print(maxVal)
-
-		# # outputs = (outputs - minVal) / (maxVal - minVal)
-		# # # outputs = outputs / maxVal
-		# outputs = np.clip(outputs, 0, 1)
-		# outputs = outputs * 255
+		print(f"\tminVal: {minVal}")
+		print(f"\tmaxVal: {maxVal}")
 
 		image = Image.fromarray(np.around(outputs).astype(np.uint8))
 		image.show()
 
-		# outputs = np.clip(outputs, 0, 1)
-		# outputs = outputs * 255
-
-		# image = Image.fromarray(np.around(outputs).astype(np.uint8))
-		# image.show()
-
 	elif args.logMap:
 		print("Using log map")
 		outputs = logMap(energys, args.bias)
-		maxVal = np.amax(outputs)
 		minVal = np.amin(outputs)
+		maxVal = np.amax(outputs)
 		print(f"\tminVal: {minVal}")
 		print(f"\tmaxVal: {maxVal}")
 		outputs = np.clip(outputs, 0, 1)

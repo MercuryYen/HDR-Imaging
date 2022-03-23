@@ -20,7 +20,7 @@ def halfBitmap(image):
 # return black white mask, and mask
 
 
-def toMask(image, threshold=0.4):
+def toMask(image, threshold=0.18):
 	sortedPixels = np.sort(image, axis=None)
 	threshold = math.floor(len(sortedPixels) * threshold)
 	return image > sortedPixels[len(sortedPixels) // 2], np.logical_or(image <= sortedPixels[threshold], image >= sortedPixels[-threshold])
@@ -49,12 +49,11 @@ def getShift(imageRef, imageTar, shiftDeep=3):
 	andMaskRef = clip(andMaskRef, [shift[0] - 2, shift[1] - 2], False)
 	andMaskRef = clip(andMaskRef, [shift[0] + 2, shift[1] + 2], False)
 
-
 	outputShift = shift
 
 	minErr = imageRef.shape[0] * imageRef.shape[1]
-	for y in range(-1, 2):
-		for x in range(-1, 2):
+	for y in range(-2, 3):
+		for x in range(-2, 3):
 			yShift = shift[1] + y
 			xShift = shift[0] + x
 
@@ -66,7 +65,7 @@ def getShift(imageRef, imageTar, shiftDeep=3):
 
 			err = np.count_nonzero((bwMaskTemp ^ bwMaskRef) & andMaskRef & andMaskTemp)
 			if err < minErr:
-				outputShift = [shift[0] + xShift, shift[1] + yShift]
+				outputShift = [xShift, yShift]
 				minErr = err
 
 	return outputShift
@@ -80,11 +79,10 @@ def alignment(images, shiftDepth=5):
 	newImages = []
 	count = 0
 
-	newImages.append(images[0])
-	for i in range(len(images) - 1):
-		shift = getShift(toGrey(images[i]), toGrey(images[i + 1]), shiftDepth)
+	for i in range(len(images)):
+		shift = getShift(toGrey(images[middle]), toGrey(images[i]), shiftDepth)
 		image = np.roll(
-			np.roll(images[i + 1], shift[1], axis=0), shift[0], axis=1)
+			np.roll(images[i], shift[1], axis=0), shift[0], axis=1)
 
 		image = clip(image, shift, (0, 0, 255))
 
@@ -93,7 +91,7 @@ def alignment(images, shiftDepth=5):
 		count += 1
 		print(f"{count} / {len(images)}")
 
-	return newImages
+	return np.array(newImages)
 
 
 if __name__ == "__main__":
@@ -109,9 +107,9 @@ if __name__ == "__main__":
 
 	start_time = time.time()
 	allImages, ln_ts = readJson(args.jsonPath)
-	newAllImages = []
 
 	if args.iteration > 0:
+		newAllImages = []
 		for i in range(len(allImages)):
 			target = allImages[i]
 			for iter in range(args.iteration):

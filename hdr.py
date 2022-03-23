@@ -7,7 +7,7 @@ from PIL import Image
 
 import matplotlib.pyplot as plt
 
-from numba import njit, jit
+from numba import njit
 
 import time
 

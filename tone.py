@@ -1,12 +1,8 @@
 import numpy as np
 from hdr import hdr
-from alignment import toGrey, halfBitmap
+from alignment import alignment, toGrey, halfBitmap
 from readImage import readJson
 from scipy.ndimage import gaussian_filter
-from scipy import ndimage
-from scipy import signal
-
-import matplotlib.pyplot as plt
 
 import argparse
 import time
@@ -252,20 +248,24 @@ if __name__ == "__main__":
 						help="bias", default=0.65)
 	parser.add_argument("-c", "--compress", type=float,
 						help="compress", default=0.25)
+	parser.add_argument("-d", "--shiftDepth", type=int,
+						help="The depth of shift recursive.", default=3)
 	parser.add_argument("-i", "--iteration", type=int,
-						help="half image iteration", default=0)
+						help="Half image iteration", default=0)
 	parser.add_argument("-k", "--kernalSize", type=int,
 						help="kernal size", default=2)
 	parser.add_argument("-n", "--fileName", type=str,
 						help="output HDR file name", default='output')
+	parser.add_argument("-ngr", "--notGhostRemoval", action='store_false', 
+						help="Not Using Ghost removal")
 	args = parser.parse_args()
 
 	start_time = time.time()
 
 	allImages, ln_ts = readJson(args.jsonPath)
 
-	newAllImages = []
 	if args.iteration > 0:
+		newAllImages = []
 		for i in range(len(allImages)):
 			target = allImages[i]
 			for iter in range(args.iteration):
@@ -273,7 +273,9 @@ if __name__ == "__main__":
 			newAllImages.append(target)
 		allImages = np.array(newAllImages)
 
-	energys, g_Zs = hdr(allImages, ln_ts)
+	allImages = alignment(allImages, args.shiftDepth)
+
+	energys, g_Zs = hdr(allImages, ln_ts, ghostRemoval=args.notGhostRemoval)
 	# image.show()
 	# for c in range(3):
 	# 	Image.fromarray(np.around(luminances[:, :, c] * 255).astype(np.uint8)).show()

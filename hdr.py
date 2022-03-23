@@ -65,26 +65,30 @@ def buildAb(allImages, ln_ts, smooth, channel, pixels, A: np.array, b: np.array)
 
 
 @njit
-def getEnergy(allImages, g_Z, ln_ts, channel):
+def getEnergy(allImages, g_Z, ln_ts, channel, ghostRemoval):
 	energy = np.zeros(allImages[0].shape[:2], dtype='float64')
 	for i in range(energy.shape[0]): 							# x
 		for j in range(energy.shape[1]): 						# y
+			
+			if ghostRemoval:					# picture index
+				pixels = allImages[..., i, j, channel]
+				print(np.sort(pixels))
+			else:
+				sum = 0
+				weight_sum = 0
+				for k in range(len(allImages)):						# picture index
+					pixel = allImages[k][i][j][channel]
+					weight = pixel / \
+						64 if pixel < 64 else (255-pixel)/64 if pixel > 191 else 1
 
-			sum = 0
-			weight_sum = 0
-			for k in range(len(allImages)):						# picture index
-				pixel = allImages[k][i][j][channel]
-				weight = pixel / \
-					64 if pixel < 64 else (255-pixel)/64 if pixel > 191 else 1
+					sum += weight * (g_Z[pixel] - ln_ts[k])
+					weight_sum += weight
 
-				sum += weight * (g_Z[pixel] - ln_ts[k])
-				weight_sum += weight
+				if weight_sum == 0:
+					sum = (min(g_Z) - max(ln_ts) if pixel == 0 else max(g_Z) - min(ln_ts))
+					weight_sum = 1
 
-			if weight_sum == 0:
-				sum = (min(g_Z) - max(ln_ts) if pixel == 0 else max(g_Z) - min(ln_ts))
-				weight_sum = 1
-
-			energy[i][j] = np.exp(sum / weight_sum)
+				energy[i][j] = np.exp(sum / weight_sum)
 
 	return energy
 
@@ -95,7 +99,7 @@ def getEnergy(allImages, g_Z, ln_ts, channel):
 #		"t": 0.3
 #	}
 # ]
-def hdr(allImages, ln_ts, smooth=10, pixelNumber=None, ghost_removal = True):
+def hdr(allImages, ln_ts, smooth=10, pixelNumber=None, ghost_removal = False):
 
 	if not pixelNumber:
 		pixelNumber = round(8192 / len(allImages) * 1.1)
@@ -140,15 +144,12 @@ def hdr(allImages, ln_ts, smooth=10, pixelNumber=None, ghost_removal = True):
 			g_Z.append(x[i])
 		g_Z = np.array(g_Z)
 
-		energy = getEnergy(allImages, g_Z, ln_ts, channel)
+		energy = getEnergy(allImages, g_Z, ln_ts, channel, ghost_removal)
 
 		outputs.append(energy)
 		g_Zs.append(g_Z)
 
 	outputs = np.array(outputs).transpose([1, 2, 0])
-
-	if ghost_removal:
-		
 
 	return outputs, g_Zs
 

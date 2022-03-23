@@ -255,8 +255,6 @@ if __name__ == "__main__":
 						help="Half image iteration", default=0)
 	parser.add_argument("-k", "--kernalSize", type=int,
 						help="kernal size", default=2)
-	parser.add_argument("-n", "--fileName", type=str,
-						help="output HDR file name", default='output')
 	parser.add_argument("-ngr", "--noGhostRemoval", action='store_false', 
 						help="Not Using Ghost removal")
 	parser.add_argument("-na", "--noAlignment", action='store_false', 

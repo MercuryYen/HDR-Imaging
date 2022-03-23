@@ -56,8 +56,8 @@ def buildAb(allImages, ln_ts, smooth, channel, pixels, A: np.array, b: np.array)
 	for i in range(254):
 		index = len(pixels) * len(allImages) + 1 + i
 
-		weight = pixel / \
-			64 if pixel < 64 else (255-pixel)/64 if pixel > 191 else 1
+		weight = i / \
+			64 if i < 64 else (255-i)/64 if i > 191 else 1
 
 		weight *= smooth ** 0.5
 

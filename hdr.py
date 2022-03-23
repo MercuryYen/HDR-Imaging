@@ -147,10 +147,26 @@ def hdr(allImages, ln_ts, smooth=10, pixelNumber=None, ghost_removal = True):
 
 	outputs = np.array(outputs).transpose([1, 2, 0])
 
-	if ghost_removal:
+	# if ghost_removal:
 		
 
 	return outputs, g_Zs
+
+def printHDR(fileName, energys):
+	f = open(fileName + ".hdr", "wb")
+	f.write(b"#?RADIANCE\n# Made with Python & Numpy\nFORMAT=32-bit_rle_rgbe\n\n")
+	f.write(bytes("-Y {0} +X {1}\n".format(energys.shape[0], energys.shape[1]), encoding='utf8'))
+
+	brightest = np.maximum(np.maximum(energys[...,0], energys[...,1]), energys[...,2])
+	mantissa = np.zeros_like(brightest)
+	exponent = np.zeros_like(brightest)
+	np.frexp(brightest, mantissa, exponent)
+	scaled_mantissa = mantissa * 256.0 / brightest
+	rgbe = np.zeros((energys.shape[0], energys.shape[1], 4), dtype=np.uint8)
+	rgbe[...,0:3] = np.around(energys[...,0:3] * scaled_mantissa[...,None])
+	rgbe[...,3] = np.around(exponent + 128)
+	rgbe.flatten().tofile(f)
+	f.close()
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()

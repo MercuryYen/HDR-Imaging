@@ -1,5 +1,5 @@
 import numpy as np
-from hdr import hdr
+from hdr import hdr, printHDR
 from alignment import toGrey, halfBitmap
 from readImage import readJson
 from scipy.ndimage import gaussian_filter
@@ -440,6 +440,8 @@ if __name__ == "__main__":
 						help="half image iteration", default=0)
 	parser.add_argument("-k", "--kernalSize", type=int,
 						help="kernal size", default=2)
+	parser.add_argument("-n", "--fileName", type=str,
+						help="output HDR file name", default='output')
 	args = parser.parse_args()
 
 	start_time = time.time()
@@ -459,6 +461,8 @@ if __name__ == "__main__":
 	# image.show()
 	# for c in range(3):
 	# 	Image.fromarray(np.around(luminances[:, :, c] * 255).astype(np.uint8)).show()
+
+	printHDR(args.fileName,energys)
 
 	if args.fbf:
 		print('calculating Fast Bilateral Filtering...')

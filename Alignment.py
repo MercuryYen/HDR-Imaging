@@ -63,7 +63,8 @@ def getShift(imageRef, imageTar, shiftDeep=3):
 			andMaskTemp = np.roll(andMask, yShift, axis=0)
 			andMaskTemp = np.roll(andMaskTemp, xShift, axis=1)
 
-			err = np.count_nonzero((bwMaskTemp ^ bwMaskRef) & andMaskRef & andMaskTemp)
+			errorMap = (bwMaskTemp ^ bwMaskRef) & andMaskRef & andMaskTemp
+			err = np.count_nonzero(errorMap)
 			if err < minErr:
 				outputShift = [xShift, yShift]
 				minErr = err

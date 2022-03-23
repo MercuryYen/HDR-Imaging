@@ -256,8 +256,10 @@ if __name__ == "__main__":
 						help="kernal size", default=2)
 	parser.add_argument("-n", "--fileName", type=str,
 						help="output HDR file name", default='output')
-	parser.add_argument("-ngr", "--notGhostRemoval", action='store_false', 
+	parser.add_argument("-ngr", "--noGhostRemoval", action='store_false', 
 						help="Not Using Ghost removal")
+	parser.add_argument("-na", "--noAlignment", action='store_false', 
+						help="Not Using alignment")
 	args = parser.parse_args()
 
 	start_time = time.time()
@@ -273,9 +275,10 @@ if __name__ == "__main__":
 			newAllImages.append(target)
 		allImages = np.array(newAllImages)
 
-	allImages = alignment(allImages, args.shiftDepth)
+	if not args.noAlignment:
+		allImages = alignment(allImages, args.shiftDepth)
 
-	energys, g_Zs = hdr(allImages, ln_ts, ghostRemoval=args.notGhostRemoval)
+	energys, g_Zs = hdr(allImages, ln_ts, ghostRemoval=args.noGhostRemoval)
 	# image.show()
 	# for c in range(3):
 	# 	Image.fromarray(np.around(luminances[:, :, c] * 255).astype(np.uint8)).show()

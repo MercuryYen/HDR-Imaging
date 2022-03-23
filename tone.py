@@ -72,23 +72,22 @@ def logMap(energys, b = 1.3):
 
 	return output
 
-def globalOperator(energys, alpha = 0.18, Lwhite = 1.0):
-	delta = 1e-6
+def globalOperator(energys, alpha = 0.18):
+	delta = 1e-7
 
-	greyImage = toGrey(energys)
+	greyImage = toGrey(energys, 0)
 	Lw = np.exp(np.sum(np.log(greyImage + delta)) / greyImage.size)
-	
+	Lwhite = np.max(energys)
 	print(f"Lw: {Lw}")
 
 	Lm = alpha * greyImage / Lw
-
-	#Ld = Lm / (1 + Lm)
+	# Ld = Lm / (1 + Lm)
 	Ld = (Lm * (1 + Lm / Lwhite ** 2)) / (1 + Lm)
 	print(Ld.shape)
 
 	output = np.copy(energys)
-	for i in range(output.shape[2]):
-		output[:, :, i] = output[:, :, i] / greyImage * Ld
+	for c in range(output.shape[2]):
+		output[:, :, c] = energys[:, :, c] * Ld[:, :] / greyImage[:, :] 
 
 	return output
 
@@ -109,7 +108,7 @@ def getLd(greyImage, vs, gaussians, alpha, phi, epsilon):
 
 def localOperator(energys, alpha = 1.6, phi = 8, epsilon = 1e-4, maxDepth = 30):
 	gaussians = []
-	greyImage = toGrey(energys)
+	greyImage = toGrey(energys, 0)
 	for i in range(maxDepth):
 		gaussians.append(gaussian_filter(greyImage, sigma=i))
 	gaussians = np.array(gaussians)
@@ -206,7 +205,7 @@ def bilateralFiltering(Itensity, f:np.broadcast_arrays, kernal_half_size = 2, si
 
 def fastBilateralFiltering(energys, sigma_f = 2, sigma_g = 0.4, compressFactor = 0.25):
 	energys = energys / np.max(energys) * 255
-	I = toGrey(energys)
+	I = toGrey(energys, 1)
 	logI = np.log10(I)
 	Colors= np.copy(energys)
 	# RGB
@@ -230,6 +229,7 @@ def fastBilateralFiltering(energys, sigma_f = 2, sigma_g = 0.4, compressFactor =
 	# RGB
 	for c in range(3):
 		outputs[:, :, c] = Colors[:, :, c] * newI[:, :]
+		outputs[:, :, c] = I[:, :]
 	
 	outputs = np.clip(outputs, 0, 1)
 	outputs = outputs * 255
@@ -242,6 +242,8 @@ if __name__ == "__main__":
 						help="The json file that store information about images", default="")
 	parser.add_argument("-a", "--alpha", type=float,
 						help="alpha", default=0.18)
+	# parser.add_argument("-w", "--white", type=float,
+	# 					help="white", default=10)
 	parser.add_argument("-l", "--local", action='store_true', 
 						help="Using local operator")
 	parser.add_argument("-f", "--fbf", action='store_true', 
@@ -304,7 +306,7 @@ if __name__ == "__main__":
 	else:
 		print("Using Photographic Tone")
 		print(np.amax(energys))
-		luminances = globalOperator(energys, args.alpha, np.amax(energys))
+		luminances = globalOperator(energys, args.alpha)
 		
 		maxVal = np.amax(luminances)
 		minVal = np.amin(luminances)

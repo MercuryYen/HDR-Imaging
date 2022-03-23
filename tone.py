@@ -225,7 +225,6 @@ def fastBilateralFiltering(energys, sigma_f = 2, sigma_g = 0.4, compressFactor =
 	# RGB
 	for c in range(3):
 		outputs[:, :, c] = Colors[:, :, c] * newI[:, :]
-		outputs[:, :, c] = I[:, :]
 	
 	outputs = np.clip(outputs, 0, 1)
 	outputs = outputs * 255

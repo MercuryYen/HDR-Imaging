@@ -1,7 +1,6 @@
 import numpy as np
 from numpy.linalg import lstsq
 from numpy.random import randint
-import cv2
 
 from PIL import Image
 

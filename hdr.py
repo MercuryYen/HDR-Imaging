@@ -388,7 +388,6 @@ def printHDR(fileName, energys):
 	rgbe.flatten().tofile(f)
 	f.close()
 
-
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-j", "--jsonPath", type=str,

@@ -71,7 +71,9 @@ def getShift(imageRef, imageTar, shiftDeep=3):
 
 	return outputShift
 
-def toGrey(image):
+def toGrey(image, mode = 0):
+	if (mode == 0):
+		return image[..., 0] * 0.27 + image[..., 1] * 0.67 + image[..., 2] * 0.06
 	return image[..., 0] * 0.211 + image[..., 1] * 0.715 + image[..., 2] * 0.074
 
 
